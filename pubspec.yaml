@@ -1,0 +1,52 @@
+name: asset_manager
+description: Asman - Application de gestion de patrimoine, gérez tous vos actifs en un seul endroit
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  provider: 6.1.5+1
+
+  # Local storage
+  shared_preferences: 2.5.3
+  hive: 2.2.3
+  hive_flutter: 1.1.0
+
+  # HTTP client
+  http: 1.5.0
+
+  # UI & Icons
+  cupertino_icons: ^1.0.8
+  fl_chart: ^0.69.0
+  intl: ^0.19.0
+
+  # Utilities
+  uuid: ^4.5.1
+  crypto: ^3.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
