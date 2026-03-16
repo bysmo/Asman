@@ -17,6 +17,7 @@ class AppTheme {
 
   static const Color success = Color(0xFF00C896);
   static const Color danger = Color(0xFFFF4B6E);
+  static const Color error = Color(0xFFFF4B6E); // alias de danger
   static const Color warning = Color(0xFFFFAA33);
   static const Color info = Color(0xFF3B9EFF);
 

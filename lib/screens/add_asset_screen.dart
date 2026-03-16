@@ -313,6 +313,8 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
       case AssetType.vehicule: return 'ex: Mercedes Classe C, Toyota Camry';
       case AssetType.investissement: return 'ex: Actions Apple, Parts SCI';
       case AssetType.creance: return 'ex: Prêt à Jean Dupont';
+      case AssetType.dette: return 'ex: Crédit immobilier, Prêt personnel';
+      case AssetType.compteBancaire: return 'ex: Compte courant, Livret A';
       case AssetType.autre: return 'ex: Œuvre d\'art, Montre de luxe';
     }
   }

@@ -10,6 +10,9 @@ import '../widgets/asset_card_widget.dart';
 import 'assets_list_screen.dart';
 import 'add_asset_screen.dart';
 import 'loyers_screen.dart';
+import 'comptes_screen.dart';
+import 'testament_screen.dart';
+import 'autorites_screen.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -24,7 +27,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _screens = const [
     _DashboardTab(),
     AssetsListScreen(),
+    ComptesScreen(),
     LoyersScreen(),
+    TestamentScreen(),
     ProfileScreen(),
   ];
 
@@ -49,14 +54,49 @@ class _HomeScreenState extends State<HomeScreen> {
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (i) => setState(() => _currentIndex = i),
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          selectedItemColor: AppTheme.gold,
+          unselectedItemColor: AppTheme.textMuted,
+          selectedFontSize: 10,
+          unselectedFontSize: 9,
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Tableau de bord'),
-            BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_rounded), label: 'Actifs'),
-            BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: 'Loyers'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profil'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.dashboard_rounded),
+              label: 'Tableau de bord',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.account_balance_wallet_rounded),
+              label: 'Actifs',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.account_balance_rounded),
+              label: 'Comptes',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.receipt_long_rounded),
+              label: 'Loyers',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.description_rounded),
+              label: 'Testament',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_rounded),
+              label: 'Profil',
+            ),
           ],
         ),
       ),
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAssetScreen())),
+              backgroundColor: AppTheme.gold,
+              foregroundColor: AppTheme.navyDark,
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
     );
   }
 }
@@ -79,15 +119,12 @@ class _DashboardTab extends StatelessWidget {
             backgroundColor: AppTheme.navyMedium,
             child: CustomScrollView(
               slivers: [
-                // En-tête
                 SliverToBoxAdapter(child: _buildHeader(context, user, total, devise, assets)),
-                // Graphique
                 SliverToBoxAdapter(child: _buildChart(assets)),
-                // Catégories rapides
+                SliverToBoxAdapter(child: _buildQuickActions(context, assets)),
                 SliverToBoxAdapter(child: _buildCategories(assets, devise)),
-                // Actifs récents
                 SliverToBoxAdapter(child: _buildRecentAssets(context, assets, devise)),
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                const SliverToBoxAdapter(child: SizedBox(height: 80)),
               ],
             ),
           );
@@ -120,17 +157,23 @@ class _DashboardTab extends StatelessWidget {
                       style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.bold)),
                 ],
               ),
-              GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAssetScreen())),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.gold.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
+              Row(
+                children: [
+                  // Bouton Autorités
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AutoritesScreen())),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.colorInvestissement.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.colorInvestissement.withValues(alpha: 0.4)),
+                      ),
+                      child: const Icon(Icons.gavel_rounded, color: AppTheme.colorInvestissement, size: 22),
+                    ),
                   ),
-                  child: const Icon(Icons.add_rounded, color: AppTheme.gold, size: 24),
-                ),
+                ],
               ),
             ],
           ),
@@ -155,7 +198,7 @@ class _DashboardTab extends StatelessWidget {
                   children: [
                     const Icon(Icons.account_balance_rounded, color: AppTheme.gold, size: 16),
                     const SizedBox(width: 8),
-                    Text('PATRIMOINE TOTAL', style: TextStyle(color: AppTheme.gold.withValues(alpha: 0.8), fontSize: 11, letterSpacing: 1.5, fontWeight: FontWeight.w600)),
+                    Text('PATRIMOINE NET', style: TextStyle(color: AppTheme.gold.withValues(alpha: 0.8), fontSize: 11, letterSpacing: 1.5, fontWeight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -165,17 +208,18 @@ class _DashboardTab extends StatelessWidget {
                 Row(
                   children: [
                     _miniStat(Icons.home_rounded, '${assets.getAssetsByType(AssetType.immobilier).length}', 'Biens', AppTheme.colorImmobilier),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     _miniStat(Icons.directions_car_rounded, '${assets.getAssetsByType(AssetType.vehicule).length}', 'Véhicules', AppTheme.colorVehicule),
-                    const SizedBox(width: 16),
-                    _miniStat(Icons.receipt_long_rounded, '${assets.assetsLoues.length}', 'Loués', AppTheme.colorInvestissement),
-                    const SizedBox(width: 16),
-                    _miniStat(Icons.trending_up_rounded, '${assets.getAssetsByType(AssetType.investissement).length}', 'Invest.', AppTheme.colorCreance),
+                    const SizedBox(width: 12),
+                    _miniStat(Icons.account_balance_rounded, '${assets.comptes.length}', 'Comptes', AppTheme.gold),
+                    const SizedBox(width: 12),
+                    _miniStat(Icons.trending_up_rounded, '${assets.getAssetsByType(AssetType.investissement).length}', 'Invest.', AppTheme.colorInvestissement),
                   ],
                 ),
               ],
             ),
           ),
+          // Revenus locatifs
           if (assets.loyersMensuelsTotaux > 0) ...[
             const SizedBox(height: 12),
             Container(
@@ -189,12 +233,78 @@ class _DashboardTab extends StatelessWidget {
                 children: [
                   const Icon(Icons.payments_rounded, color: AppTheme.success, size: 18),
                   const SizedBox(width: 10),
-                  Text('Revenus locatifs mensuels : ',
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                  Text('Revenus locatifs : ', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                   Text(AppUtils.formatMontant(assets.loyersMensuelsTotaux, devise: devise),
                       style: const TextStyle(color: AppTheme.success, fontSize: 14, fontWeight: FontWeight.bold)),
+                  const Text('/mois', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
                 ],
               ),
+            ),
+          ],
+          // Dettes / Créances
+          if (assets.totalDettesEnCours > 0 || assets.totalCreancesEnCours > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (assets.totalCreancesEnCours > 0)
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.colorCreance.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.colorCreance.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.arrow_upward_rounded, color: AppTheme.colorCreance, size: 14),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Créances', style: TextStyle(color: AppTheme.textMuted, fontSize: 10)),
+                                Text(AppUtils.formatMontant(assets.totalCreancesEnCours, devise: devise),
+                                    style: const TextStyle(color: AppTheme.colorCreance, fontSize: 12, fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (assets.totalCreancesEnCours > 0 && assets.totalDettesEnCours > 0)
+                  const SizedBox(width: 8),
+                if (assets.totalDettesEnCours > 0)
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.error.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.arrow_downward_rounded, color: AppTheme.error, size: 14),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Dettes', style: TextStyle(color: AppTheme.textMuted, fontSize: 10)),
+                                Text(AppUtils.formatMontant(assets.totalDettesEnCours, devise: devise),
+                                    style: const TextStyle(color: AppTheme.error, fontSize: 12, fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ],
@@ -223,12 +333,46 @@ class _DashboardTab extends StatelessWidget {
     );
   }
 
+  Widget _buildQuickActions(BuildContext context, AssetProvider assets) {
+    final certsPending = assets.certifications.where((c) =>
+        c.statut == CertificationStatus.enAttente || c.statut == CertificationStatus.enCours).length;
+
+    if (certsPending == 0) return const SizedBox();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: GestureDetector(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AutoritesScreen())),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.warning.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.warning.withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.hourglass_empty_rounded, color: AppTheme.warning, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '$certsPending certification${certsPending > 1 ? "s" : ""} en attente de traitement',
+                  style: const TextStyle(color: AppTheme.warning, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppTheme.warning),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildCategories(AssetProvider assets, String devise) {
     final categories = [
       {'label': 'Immobilier', 'icon': Icons.home_rounded, 'color': AppTheme.colorImmobilier, 'total': assets.totalImmobilier},
       {'label': 'Véhicules', 'icon': Icons.directions_car_rounded, 'color': AppTheme.colorVehicule, 'total': assets.totalVehicules},
       {'label': 'Investissements', 'icon': Icons.trending_up_rounded, 'color': AppTheme.colorInvestissement, 'total': assets.totalInvestissements},
-      {'label': 'Créances', 'icon': Icons.description_rounded, 'color': AppTheme.colorCreance, 'total': assets.totalCreances},
+      {'label': 'Comptes banc.', 'icon': Icons.account_balance_rounded, 'color': AppTheme.gold, 'total': assets.totalComptesBancaires},
     ];
 
     return Padding(
@@ -243,7 +387,7 @@ class _DashboardTab extends StatelessWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2, childAspectRatio: 2.0, crossAxisSpacing: 12, mainAxisSpacing: 12),
+                crossAxisCount: 2, childAspectRatio: 2.0, crossAxisSpacing: 12, mainAxisSpacing: 12),
             itemCount: categories.length,
             itemBuilder: (_, i) {
               final cat = categories[i];
@@ -306,12 +450,6 @@ class _DashboardTab extends StatelessWidget {
             const SizedBox(height: 8),
             const Text('Appuyez sur + pour ajouter votre premier actif',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 13), textAlign: TextAlign.center),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAssetScreen())),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Ajouter un actif'),
-            ),
           ],
         ),
       );
@@ -333,9 +471,9 @@ class _DashboardTab extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           ...recent.map((a) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: AssetCardWidget(asset: a, devise: devise),
-          )),
+                padding: const EdgeInsets.only(bottom: 10),
+                child: AssetCardWidget(asset: a, devise: devise),
+              )),
         ],
       ),
     );

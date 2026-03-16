@@ -48,6 +48,8 @@ class AppUtils {
       case AssetType.vehicule: return AppTheme.colorVehicule;
       case AssetType.investissement: return AppTheme.colorInvestissement;
       case AssetType.creance: return AppTheme.colorCreance;
+      case AssetType.dette: return AppTheme.error;
+      case AssetType.compteBancaire: return AppTheme.gold;
       case AssetType.autre: return AppTheme.colorAutre;
     }
   }
@@ -58,6 +60,8 @@ class AppUtils {
       case AssetType.vehicule: return Icons.directions_car_rounded;
       case AssetType.investissement: return Icons.trending_up_rounded;
       case AssetType.creance: return Icons.description_rounded;
+      case AssetType.dette: return Icons.money_off_rounded;
+      case AssetType.compteBancaire: return Icons.account_balance_rounded;
       case AssetType.autre: return Icons.category_rounded;
     }
   }
@@ -68,6 +72,8 @@ class AppUtils {
       case AssetType.vehicule: return 'Véhicule';
       case AssetType.investissement: return 'Investissement';
       case AssetType.creance: return 'Créance';
+      case AssetType.dette: return 'Dette';
+      case AssetType.compteBancaire: return 'Compte Bancaire';
       case AssetType.autre: return 'Autre';
     }
   }

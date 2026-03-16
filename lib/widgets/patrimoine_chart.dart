@@ -104,7 +104,7 @@ class _PatrimoineChartState extends State<PatrimoineChart> {
       {'label': 'Immobilier', 'value': ap.totalImmobilier, 'color': AppTheme.colorImmobilier},
       {'label': 'Véhicules', 'value': ap.totalVehicules, 'color': AppTheme.colorVehicule},
       {'label': 'Investissements', 'value': ap.totalInvestissements, 'color': AppTheme.colorInvestissement},
-      {'label': 'Créances', 'value': ap.totalCreances, 'color': AppTheme.colorCreance},
+      {'label': 'Créances', 'value': ap.totalCreancesActifs, 'color': AppTheme.colorCreance},
       {'label': 'Autres', 'value': ap.totalAutres, 'color': AppTheme.colorAutre},
     ];
     return cats

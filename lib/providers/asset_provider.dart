@@ -6,6 +6,12 @@ import '../services/storage_service.dart';
 class AssetProvider extends ChangeNotifier {
   List<Asset> _assets = [];
   List<Loyer> _loyers = [];
+  List<CompteBancaire> _comptes = [];
+  List<Creance> _creances = [];
+  List<Dette> _dettes = [];
+  List<CertificationDemande> _certifications = [];
+  List<MarketplaceListing> _listings = [];
+  Testament? _testament;
   bool _isLoading = false;
 
   final StorageService _storage = StorageService();
@@ -13,118 +19,243 @@ class AssetProvider extends ChangeNotifier {
 
   List<Asset> get assets => _assets;
   List<Loyer> get loyers => _loyers;
+  List<CompteBancaire> get comptes => _comptes;
+  List<Creance> get creances => _creances;
+  List<Dette> get dettes => _dettes;
+  List<CertificationDemande> get certifications => _certifications;
+  List<MarketplaceListing> get listings => _listings;
+  Testament? get testament => _testament;
   bool get isLoading => _isLoading;
 
-  // Totaux par catégorie
-  double get totalImmobilier => _assets
-      .where((a) => a.type == AssetType.immobilier)
-      .fold(0.0, (sum, a) => sum + a.valeurActuelle);
+  // ─── TOTAUX PATRIMOINE ────────────────────────────────────────────────────
+  double get totalImmobilier => _totalByType(AssetType.immobilier);
+  double get totalVehicules => _totalByType(AssetType.vehicule);
+  double get totalInvestissements => _totalByType(AssetType.investissement);
+  double get totalCreancesActifs => _totalByType(AssetType.creance);
+  double get totalAutres => _totalByType(AssetType.autre);
 
-  double get totalVehicules => _assets
-      .where((a) => a.type == AssetType.vehicule)
-      .fold(0.0, (sum, a) => sum + a.valeurActuelle);
+  double _totalByType(AssetType t) => _assets
+      .where((a) => a.type == t && a.statut != AssetStatus.vendu)
+      .fold(0.0, (s, a) => s + a.valeurActuelle);
 
-  double get totalInvestissements => _assets
-      .where((a) => a.type == AssetType.investissement)
-      .fold(0.0, (sum, a) => sum + a.valeurActuelle);
+  double get totalComptesBancaires =>
+      _comptes.where((c) => c.estActif).fold(0.0, (s, c) => s + c.solde);
 
-  double get totalCreances => _assets
-      .where((a) => a.type == AssetType.creance)
-      .fold(0.0, (sum, a) => sum + a.valeurActuelle);
+  double get totalCreancesEnCours =>
+      _creances.where((c) => !c.estRembourse).fold(0.0, (s, c) => s + c.montantRestant);
 
-  double get totalAutres => _assets
-      .where((a) => a.type == AssetType.autre)
-      .fold(0.0, (sum, a) => sum + a.valeurActuelle);
+  double get totalDettesEnCours =>
+      _dettes.where((d) => !d.estRembourse).fold(0.0, (s, d) => s + d.montantRestant);
 
-  double get patrimoineTotal => _assets
-      .where((a) => a.statut != AssetStatus.vendu)
-      .fold(0.0, (sum, a) => sum + a.valeurActuelle);
+  double get patrimoineTotal =>
+      _assets.where((a) => a.statut != AssetStatus.vendu).fold(0.0, (s, a) => s + a.valeurActuelle) +
+      totalComptesBancaires +
+      totalCreancesEnCours -
+      totalDettesEnCours;
+
+  double get patrimoineNet => patrimoineTotal;
 
   double get loyersMensuelsTotaux => _assets
       .where((a) => a.estLoue && a.loyerMensuel != null)
-      .fold(0.0, (sum, a) => sum + (a.loyerMensuel ?? 0));
+      .fold(0.0, (s, a) => s + (a.loyerMensuel ?? 0));
 
   List<Asset> getAssetsByType(AssetType type) =>
       _assets.where((a) => a.type == type).toList();
-
   List<Asset> get assetsLoues => _assets.where((a) => a.estLoue).toList();
+  List<Asset> get assetsCertifies =>
+      _assets.where((a) => a.certificationStatus == CertificationStatus.certifie).toList();
 
   List<Loyer> getLoyersByAsset(String assetId) =>
       _loyers.where((l) => l.assetId == assetId).toList();
 
-  double getLoyersPercusPourMois(int mois, int annee) {
-    return _loyers
-        .where((l) => l.mois == mois && l.annee == annee && l.estPaye)
-        .fold(0.0, (sum, l) => sum + l.montant);
+  double getLoyersPercusMois(int mois, int annee) => _loyers
+      .where((l) => l.mois == mois && l.annee == annee && l.estPaye)
+      .fold(0.0, (s, l) => s + l.montant);
+
+  CertificationDemande? getCertificationByAsset(String assetId) {
+    try {
+      return _certifications.lastWhere((c) => c.assetId == assetId);
+    } catch (_) {
+      return null;
+    }
   }
 
+  List<MarketplaceListing> get listingsActifs =>
+      _listings.where((l) => l.statut == ListingStatus.actif).toList();
+
+  // ─── LOAD ─────────────────────────────────────────────────────────────────
   Future<void> loadData() async {
     _isLoading = true;
     notifyListeners();
-
     _assets = await _storage.loadAssets();
     _loyers = await _storage.loadLoyers();
-
+    _comptes = await _storage.loadComptes();
+    _creances = await _storage.loadCreances();
+    _dettes = await _storage.loadDettes();
+    _certifications = await _storage.loadCertifications();
+    _listings = await _storage.loadListings();
+    _testament = await _storage.loadTestament();
     _isLoading = false;
     notifyListeners();
   }
 
+  // ─── ASSETS CRUD ──────────────────────────────────────────────────────────
   Future<void> addAsset(Asset asset) async {
     _assets.add(asset);
     await _storage.saveAssets(_assets);
     notifyListeners();
   }
-
-  Future<void> updateAsset(Asset updatedAsset) async {
-    final index = _assets.indexWhere((a) => a.id == updatedAsset.id);
-    if (index != -1) {
-      _assets[index] = updatedAsset;
-      await _storage.saveAssets(_assets);
-      notifyListeners();
-    }
+  Future<void> updateAsset(Asset updated) async {
+    final i = _assets.indexWhere((a) => a.id == updated.id);
+    if (i != -1) { _assets[i] = updated; await _storage.saveAssets(_assets); notifyListeners(); }
   }
-
-  Future<void> deleteAsset(String assetId) async {
-    _assets.removeWhere((a) => a.id == assetId);
-    _loyers.removeWhere((l) => l.assetId == assetId);
+  Future<void> deleteAsset(String id) async {
+    _assets.removeWhere((a) => a.id == id);
+    _loyers.removeWhere((l) => l.assetId == id);
+    _certifications.removeWhere((c) => c.assetId == id);
+    _listings.removeWhere((l) => l.assetId == id);
     await _storage.saveAssets(_assets);
     await _storage.saveLoyers(_loyers);
     notifyListeners();
   }
-
-  Future<void> updateValeur(String assetId, double nouvelleValeur) async {
-    final index = _assets.indexWhere((a) => a.id == assetId);
-    if (index != -1) {
-      _assets[index].valeurActuelle = nouvelleValeur;
-      _assets[index].dateDerniereEvaluation = DateTime.now();
+  Future<void> updateValeur(String id, double val) async {
+    final i = _assets.indexWhere((a) => a.id == id);
+    if (i != -1) {
+      _assets[i].valeurActuelle = val;
+      _assets[i].dateDerniereEvaluation = DateTime.now();
       await _storage.saveAssets(_assets);
       notifyListeners();
     }
   }
 
-  Future<void> addLoyer(Loyer loyer) async {
-    _loyers.add(loyer);
-    await _storage.saveLoyers(_loyers);
+  // ─── LOYERS ───────────────────────────────────────────────────────────────
+  Future<void> addLoyer(Loyer l) async { _loyers.add(l); await _storage.saveLoyers(_loyers); notifyListeners(); }
+  Future<void> updateLoyer(Loyer l) async {
+    final i = _loyers.indexWhere((x) => x.id == l.id);
+    if (i != -1) { _loyers[i] = l; await _storage.saveLoyers(_loyers); notifyListeners(); }
+  }
+  Future<void> marquerLoyerPaye(String id) async {
+    final i = _loyers.indexWhere((l) => l.id == id);
+    if (i != -1) { _loyers[i].estPaye = true; _loyers[i].datePaiement = DateTime.now(); await _storage.saveLoyers(_loyers); notifyListeners(); }
+  }
+
+  // ─── COMPTES BANCAIRES ────────────────────────────────────────────────────
+  Future<void> addCompte(CompteBancaire c) async { _comptes.add(c); await _storage.saveComptes(_comptes); notifyListeners(); }
+  Future<void> updateCompte(CompteBancaire c) async {
+    final i = _comptes.indexWhere((x) => x.id == c.id);
+    if (i != -1) { _comptes[i] = c; await _storage.saveComptes(_comptes); notifyListeners(); }
+  }
+  Future<void> deleteCompte(String id) async { _comptes.removeWhere((c) => c.id == id); await _storage.saveComptes(_comptes); notifyListeners(); }
+
+  // ─── CRÉANCES ─────────────────────────────────────────────────────────────
+  Future<void> addCreance(Creance c) async { _creances.add(c); await _storage.saveCreances(_creances); notifyListeners(); }
+  Future<void> updateCreance(Creance c) async {
+    final i = _creances.indexWhere((x) => x.id == c.id);
+    if (i != -1) { _creances[i] = c; await _storage.saveCreances(_creances); notifyListeners(); }
+  }
+  Future<void> deleteCreance(String id) async { _creances.removeWhere((c) => c.id == id); await _storage.saveCreances(_creances); notifyListeners(); }
+
+  Future<void> ajouterRemboursementCreance(String creanceId, RemboursementCreance r) async {
+    final i = _creances.indexWhere((c) => c.id == creanceId);
+    if (i != -1) {
+      _creances[i].remboursements = [..._creances[i].remboursements, r];
+      _creances[i].montantRembourse += r.montant;
+      if (_creances[i].montantRembourse >= _creances[i].montant) _creances[i].estRembourse = true;
+      await _storage.saveCreances(_creances);
+      notifyListeners();
+    }
+  }
+
+  // ─── DETTES ───────────────────────────────────────────────────────────────
+  Future<void> addDette(Dette d) async { _dettes.add(d); await _storage.saveDettes(_dettes); notifyListeners(); }
+  Future<void> updateDette(Dette d) async {
+    final i = _dettes.indexWhere((x) => x.id == d.id);
+    if (i != -1) { _dettes[i] = d; await _storage.saveDettes(_dettes); notifyListeners(); }
+  }
+  Future<void> deleteDette(String id) async { _dettes.removeWhere((d) => d.id == id); await _storage.saveDettes(_dettes); notifyListeners(); }
+
+  Future<void> ajouterRemboursementDette(String detteId, RemboursementCreance r) async {
+    final i = _dettes.indexWhere((d) => d.id == detteId);
+    if (i != -1) {
+      _dettes[i].remboursements = [..._dettes[i].remboursements, r];
+      _dettes[i].montantRembourse += r.montant;
+      if (_dettes[i].montantRembourse >= _dettes[i].montant) _dettes[i].estRembourse = true;
+      await _storage.saveDettes(_dettes);
+      notifyListeners();
+    }
+  }
+
+  // ─── CERTIFICATIONS ───────────────────────────────────────────────────────
+  Future<void> demanderCertification(CertificationDemande c) async {
+    _certifications.add(c);
+    final ai = _assets.indexWhere((a) => a.id == c.assetId);
+    if (ai != -1) {
+      _assets[ai].certificationStatus = CertificationStatus.enAttente;
+      _assets[ai].certificationId = c.id;
+      await _storage.saveAssets(_assets);
+    }
+    await _storage.saveCertifications(_certifications);
     notifyListeners();
   }
 
-  Future<void> updateLoyer(Loyer loyer) async {
-    final index = _loyers.indexWhere((l) => l.id == loyer.id);
-    if (index != -1) {
-      _loyers[index] = loyer;
-      await _storage.saveLoyers(_loyers);
+  // Simule l'approbation (en vrai: viendrait du backend)
+  Future<void> approuverCertification(String certId) async {
+    final ci = _certifications.indexWhere((c) => c.id == certId);
+    if (ci != -1) {
+      _certifications[ci].statut = CertificationStatus.certifie;
+      _certifications[ci].dateTraitement = DateTime.now();
+      final ai = _assets.indexWhere((a) => a.id == _certifications[ci].assetId);
+      if (ai != -1) {
+        _assets[ai].certificationStatus = CertificationStatus.certifie;
+        _assets[ai].dateCertification = DateTime.now();
+        _assets[ai].certificationAutoriteNom = _certifications[ci].autoriteNom;
+        await _storage.saveAssets(_assets);
+      }
+      await _storage.saveCertifications(_certifications);
       notifyListeners();
     }
   }
 
-  Future<void> marquerLoyerPaye(String loyerId) async {
-    final index = _loyers.indexWhere((l) => l.id == loyerId);
-    if (index != -1) {
-      _loyers[index].estPaye = true;
-      _loyers[index].datePaiement = DateTime.now();
-      await _storage.saveLoyers(_loyers);
+  // ─── MARKETPLACE ──────────────────────────────────────────────────────────
+  Future<void> publierListing(MarketplaceListing listing) async {
+    _listings.add(listing);
+    final ai = _assets.indexWhere((a) => a.id == listing.assetId);
+    if (ai != -1) {
+      if (listing.type == ListingType.vente) {
+        _assets[ai].enVente = true;
+        _assets[ai].prixVente = listing.prix;
+      } else {
+        _assets[ai].enLocation = true;
+        _assets[ai].prixLocation = listing.prix;
+      }
+      _assets[ai].listingId = listing.id;
+      await _storage.saveAssets(_assets);
+    }
+    await _storage.saveListings(_listings);
+    notifyListeners();
+  }
+
+  Future<void> retirerListing(String listingId) async {
+    final li = _listings.indexWhere((l) => l.id == listingId);
+    if (li != -1) {
+      final assetId = _listings[li].assetId;
+      _listings[li].statut = ListingStatus.cloture;
+      final ai = _assets.indexWhere((a) => a.id == assetId);
+      if (ai != -1) {
+        _assets[ai].enVente = false;
+        _assets[ai].enLocation = false;
+        await _storage.saveAssets(_assets);
+      }
+      await _storage.saveListings(_listings);
       notifyListeners();
     }
+  }
+
+  // ─── TESTAMENT ────────────────────────────────────────────────────────────
+  Future<void> saveTestament(Testament t) async {
+    _testament = t;
+    await _storage.saveTestament(t);
+    notifyListeners();
   }
 
   String generateId() => _uuid.v4();
