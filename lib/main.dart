@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'providers/auth_provider.dart';
 import 'providers/asset_provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/otp_verification_screen.dart';
+import 'screens/pin_setup_screen.dart';
+import 'screens/forgot_password_screen.dart';
+import 'screens/reset_password_screen.dart';
+import 'screens/reset_pin_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('fr_FR', null);
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -28,7 +35,13 @@ class AssetManagerApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..init()),
-        ChangeNotifierProvider(create: (_) => AssetProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, AssetProvider>(
+          create: (_) => AssetProvider(),
+          update: (_, auth, assets) {
+            assets!.setAuthProvider(auth);
+            return assets;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'Asman',
@@ -38,6 +51,14 @@ class AssetManagerApp extends StatelessWidget {
         routes: {
           '/login': (_) => const LoginScreen(),
           '/home': (_) => const HomeScreen(),
+          '/otp-verify': (ctx) {
+            final email = ModalRoute.of(ctx)!.settings.arguments as String? ?? '';
+            return OtpVerificationScreen(emailHint: email);
+          },
+          '/pin-setup': (_) => const PinSetupScreen(),
+          '/forgot-password': (_) => const ForgotPasswordScreen(),
+          '/reset-password': (_) => const ResetPasswordScreen(),
+          '/reset-pin': (_) => const ResetPinScreen(),
         },
       ),
     );

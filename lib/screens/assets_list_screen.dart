@@ -46,10 +46,11 @@ class _AssetsListScreenState extends State<AssetsListScreen> with SingleTickerPr
     return SafeArea(
       child: Consumer2<AssetProvider, AuthProvider>(
         builder: (context, assetProv, authProv, _) {
-          final devise = authProv.user?.devise ?? 'EUR';
+          final devise = authProv.user?.devise ?? 'XOF';
+          final visible = authProv.balancesVisible;
           return Column(
             children: [
-              _buildHeader(context, assetProv, devise),
+              _buildHeader(context, assetProv, devise, visible),
               _buildSearchBar(),
               _buildTabBar(),
               Expanded(child: _buildAssetsList(assetProv, devise)),
@@ -60,7 +61,7 @@ class _AssetsListScreenState extends State<AssetsListScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildHeader(BuildContext context, AssetProvider assetProv, String devise) {
+  Widget _buildHeader(BuildContext context, AssetProvider assetProv, String devise, bool visible) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       color: AppTheme.navyMedium,
@@ -71,8 +72,10 @@ class _AssetsListScreenState extends State<AssetsListScreen> with SingleTickerPr
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Mes Actifs', style: TextStyle(color: AppTheme.textPrimary, fontSize: 22, fontWeight: FontWeight.bold)),
-              Text('${assetProv.assets.length} actif${assetProv.assets.length > 1 ? 's' : ''} · ${AppUtils.formatMontant(assetProv.patrimoineTotal, devise: devise)}',
-                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              Text(
+                '${assetProv.assets.length} actif${assetProv.assets.length > 1 ? 's' : ''} · ${visible ? AppUtils.formatMontant(assetProv.patrimoineTotal, devise: devise) : '••••••'}',
+                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              ),
             ],
           ),
           ElevatedButton.icon(

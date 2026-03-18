@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/asset_model.dart';
+import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_utils.dart';
 
@@ -17,8 +19,10 @@ class AssetCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visible = context.watch<AuthProvider>().balancesVisible;
     final color = AppUtils.getColorForType(asset.type);
     final plusValue = asset.plusValue;
+    const masked = '••••••';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -67,8 +71,12 @@ class AssetCardWidget extends StatelessWidget {
                     children: [
                       const Icon(Icons.payments_rounded, color: AppTheme.success, size: 12),
                       const SizedBox(width: 4),
-                      Text('${AppUtils.formatMontant(asset.loyerMensuel!, devise: devise)}/mois',
-                          style: const TextStyle(color: AppTheme.success, fontSize: 11, fontWeight: FontWeight.w500)),
+                      Text(
+                        visible
+                            ? '${AppUtils.formatMontant(asset.loyerMensuel!, devise: devise)}/mois'
+                            : '$masked/mois',
+                        style: const TextStyle(color: AppTheme.success, fontSize: 11, fontWeight: FontWeight.w500),
+                      ),
                     ],
                   ),
                 ],
@@ -78,8 +86,10 @@ class AssetCardWidget extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(AppUtils.formatMontant(asset.valeurActuelle, devise: devise),
-                  style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+              Text(
+                visible ? AppUtils.formatMontant(asset.valeurActuelle, devise: devise) : masked,
+                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 4),
               Row(
                 children: [

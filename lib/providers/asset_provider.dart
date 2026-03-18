@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/asset_model.dart';
 import '../services/storage_service.dart';
+import '../services/database_service.dart';
+import 'auth_provider.dart';
 
 class AssetProvider extends ChangeNotifier {
   List<Asset> _assets = [];
@@ -16,6 +18,11 @@ class AssetProvider extends ChangeNotifier {
 
   final StorageService _storage = StorageService();
   final _uuid = const Uuid();
+  AuthProvider? _authProvider;
+
+  void setAuthProvider(AuthProvider auth) {
+    _authProvider = auth;
+  }
 
   List<Asset> get assets => _assets;
   List<Loyer> get loyers => _loyers;
@@ -100,14 +107,44 @@ class AssetProvider extends ChangeNotifier {
   }
 
   // ─── ASSETS CRUD ──────────────────────────────────────────────────────────
-  Future<void> addAsset(Asset asset) async {
+  Future<void> addAsset(Asset asset, {Map<String, String>? documents}) async {
     _assets.add(asset);
     await _storage.saveAssets(_assets);
+
+    // Persister aussi en SQLite pour que la FK des documents soit satisfaite
+    final auth = _authProvider;
+    if (auth?.user != null) {
+      try {
+        await DatabaseService().createAsset(asset, auth!.user!.id);
+      } catch (_) {} // peut échouer si l'asset existe déjà
+    }
+
+    // Si des documents accompagnent la création
+    if (documents != null && documents.isNotEmpty) {
+      await DatabaseService().addAssetDocuments(asset.id, documents);
+    }
+
     notifyListeners();
   }
+
+  Future<bool> checkAssetUniqueness(AssetType type, Map<String, dynamic> details) async {
+    return await DatabaseService().checkAssetUniqueness(type, details);
+  }
+
   Future<void> updateAsset(Asset updated) async {
     final i = _assets.indexWhere((a) => a.id == updated.id);
-    if (i != -1) { _assets[i] = updated; await _storage.saveAssets(_assets); notifyListeners(); }
+    if (i != -1) {
+      _assets[i] = updated;
+      await _storage.saveAssets(_assets);
+      // Sync SQLite
+      final auth = _authProvider;
+      if (auth?.user != null) {
+        try {
+          await DatabaseService().updateAsset(updated);
+        } catch (_) {}
+      }
+      notifyListeners();
+    }
   }
   Future<void> deleteAsset(String id) async {
     _assets.removeWhere((a) => a.id == id);
@@ -134,10 +171,63 @@ class AssetProvider extends ChangeNotifier {
     final i = _loyers.indexWhere((x) => x.id == l.id);
     if (i != -1) { _loyers[i] = l; await _storage.saveLoyers(_loyers); notifyListeners(); }
   }
-  Future<void> marquerLoyerPaye(String id) async {
-    final i = _loyers.indexWhere((l) => l.id == id);
-    if (i != -1) { _loyers[i].estPaye = true; _loyers[i].datePaiement = DateTime.now(); await _storage.saveLoyers(_loyers); notifyListeners(); }
+
+  /// Marquer une période (mois/année) comme payée
+  Future<void> marquerPeriodePaye(String loyerId, int mois, int annee, {double? montantPaye, String? notes}) async {
+    final i = _loyers.indexWhere((l) => l.id == loyerId);
+    if (i == -1) return;
+    final loyer = _loyers[i];
+    final pi = loyer.periodes.indexWhere((p) => p.mois == mois && p.annee == annee);
+    if (pi != -1) {
+      loyer.periodes[pi].statut = StatutPeriodeLoyer.paye;
+      loyer.periodes[pi].datePaiement = DateTime.now();
+      loyer.periodes[pi].montantPaye = montantPaye ?? loyer.montant;
+      loyer.periodes[pi].notes = notes;
+    } else {
+      loyer.periodes = [
+        ...loyer.periodes,
+        EncaissementPeriode(mois: mois, annee: annee, statut: StatutPeriodeLoyer.paye,
+            datePaiement: DateTime.now(), montantPaye: montantPaye ?? loyer.montant, notes: notes),
+      ];
+    }
+    await _storage.saveLoyers(_loyers);
+    notifyListeners();
   }
+
+  /// Marquer une période comme impayée
+  Future<void> marquerPeriodeImpaye(String loyerId, int mois, int annee, {String? notes}) async {
+    final i = _loyers.indexWhere((l) => l.id == loyerId);
+    if (i == -1) return;
+    final loyer = _loyers[i];
+    final pi = loyer.periodes.indexWhere((p) => p.mois == mois && p.annee == annee);
+    if (pi != -1) {
+      loyer.periodes[pi].statut = StatutPeriodeLoyer.impaye;
+      loyer.periodes[pi].notes = notes;
+    } else {
+      loyer.periodes = [
+        ...loyer.periodes,
+        EncaissementPeriode(mois: mois, annee: annee, statut: StatutPeriodeLoyer.impaye, notes: notes),
+      ];
+    }
+    await _storage.saveLoyers(_loyers);
+    notifyListeners();
+  }
+
+  /// Résilier la location d'un actif
+  Future<void> resilierLocation(String assetId) async {
+    final ia = _assets.indexWhere((a) => a.id == assetId);
+    if (ia != -1) {
+      _assets[ia].estLoue = false;
+      _assets[ia].statut = AssetStatus.actif;
+      _assets[ia].locataire = null;
+      _assets[ia].dateFinBail = null;
+      await _storage.saveAssets(_assets);
+      try { await DatabaseService().updateAsset(_assets[ia]); } catch (_) {}
+    }
+    await _storage.saveLoyers(_loyers);
+    notifyListeners();
+  }
+
 
   // ─── COMPTES BANCAIRES ────────────────────────────────────────────────────
   Future<void> addCompte(CompteBancaire c) async { _comptes.add(c); await _storage.saveComptes(_comptes); notifyListeners(); }
@@ -186,7 +276,7 @@ class AssetProvider extends ChangeNotifier {
   }
 
   // ─── CERTIFICATIONS ───────────────────────────────────────────────────────
-  Future<void> demanderCertification(CertificationDemande c) async {
+  Future<void> demanderCertification(CertificationDemande c, List<Map<String, String>> docs) async {
     _certifications.add(c);
     final ai = _assets.indexWhere((a) => a.id == c.assetId);
     if (ai != -1) {
@@ -195,6 +285,8 @@ class AssetProvider extends ChangeNotifier {
       await _storage.saveAssets(_assets);
     }
     await _storage.saveCertifications(_certifications);
+    // Placeholder: Plus tard, ces docs iront dans DatabaseService
+    // await DatabaseService().demanderCertification(c, docs);
     notifyListeners();
   }
 

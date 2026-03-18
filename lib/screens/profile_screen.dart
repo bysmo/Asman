@@ -5,8 +5,45 @@ import '../providers/asset_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_utils.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _editing = false;
+  late TextEditingController _nomC, _prenomC;
+  String? _selectedPays;
+  String? _selectedDevise;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = context.read<AuthProvider>().user;
+    _nomC = TextEditingController(text: user?.nom ?? '');
+    _prenomC = TextEditingController(text: user?.prenom ?? '');
+    _selectedPays = user?.pays ?? 'Burkina Faso';
+    _selectedDevise = user?.devise ?? 'XOF';
+  }
+
+  @override
+  void dispose() {
+    _nomC.dispose();
+    _prenomC.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveProfile() async {
+    final auth = context.read<AuthProvider>();
+    await auth.updateProfile(
+      nom: _nomC.text.trim(),
+      prenom: _prenomC.text.trim(),
+      pays: _selectedPays!,
+      devise: _selectedDevise!,
+    );
+    if (mounted) setState(() => _editing = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,20 +51,33 @@ class ProfileScreen extends StatelessWidget {
       child: Consumer2<AuthProvider, AssetProvider>(
         builder: (context, auth, assets, _) {
           final user = auth.user;
-          final devise = user?.devise ?? 'EUR';
+          final devise = user?.devise ?? 'XOF';
 
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
               const SizedBox(height: 8),
               _buildAvatar(user),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+              // Email & PIN status
+              _buildSecurityBadges(user),
+              const SizedBox(height: 20),
               _buildStats(assets, devise),
               const SizedBox(height: 24),
               _buildSection('Mon compte', [
-                _settingsTile(Icons.person_rounded, 'Informations personnelles', 'Nom, prénom, téléphone', () {}),
-                _settingsTile(Icons.public_rounded, 'Pays & devise', '${user?.pays ?? '-'} · ${user?.devise ?? '-'}', () {}),
-                _settingsTile(Icons.lock_rounded, 'Changer le mot de passe', '', () {}),
+                _settingsTile(
+                  Icons.person_rounded,
+                  'Informations personnelles',
+                  'Nom, prénom, pays, devise',
+                  () => setState(() => _editing = !_editing),
+                ),
+                if (_editing) _buildEditForm(),
+                _settingsTile(
+                  Icons.pin_rounded,
+                  'Modifier mon code PIN',
+                  'Vérification par email requise',
+                  () => Navigator.pushNamed(context, '/reset-pin'),
+                ),
               ]),
               const SizedBox(height: 16),
               _buildSection('Données', [
@@ -36,7 +86,7 @@ class ProfileScreen extends StatelessWidget {
               ]),
               const SizedBox(height: 16),
               _buildSection('Application', [
-                _settingsTile(Icons.info_outline_rounded, 'À propos', 'Asset Manager v1.0.0', () {}),
+                _settingsTile(Icons.info_outline_rounded, 'À propos', 'Asman v1.0.0', () {}),
                 _settingsTile(Icons.privacy_tip_outlined, 'Politique de confidentialité', '', () {}),
               ]),
               const SizedBox(height: 24),
@@ -49,6 +99,142 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildSecurityBadges(user) {
+    return Row(
+      children: [
+        _badge(
+          icon: user?.emailVerifie == true ? Icons.verified_rounded : Icons.mark_email_unread_rounded,
+          label: user?.emailVerifie == true ? 'Email vérifié' : 'Email non vérifié',
+          color: user?.emailVerifie == true ? AppTheme.success : AppTheme.warning,
+        ),
+        const SizedBox(width: 8),
+        _badge(
+          icon: user?.hasPinConfigured == true ? Icons.lock_rounded : Icons.lock_open_rounded,
+          label: user?.hasPinConfigured == true ? 'PIN configuré' : 'PIN non configuré',
+          color: user?.hasPinConfigured == true ? AppTheme.success : AppTheme.warning,
+        ),
+      ],
+    );
+  }
+
+  Widget _badge({required IconData icon, required String label, required Color color}) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 14),
+            const SizedBox(width: 6),
+            Expanded(child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditForm() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.navyMedium,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Informations modifiables', style: TextStyle(color: AppTheme.gold, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.8)),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: _miniField(_prenomC, 'Prénom')),
+            const SizedBox(width: 10),
+            Expanded(child: _miniField(_nomC, 'Nom')),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _miniDropdown('Pays', _selectedPays!, AppUtils.pays, (v) => setState(() => _selectedPays = v!))),
+            const SizedBox(width: 10),
+            Expanded(child: _miniDropdown('Devise', _selectedDevise!, AppUtils.devises, (v) => setState(() => _selectedDevise = v!))),
+          ]),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.info.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.info.withValues(alpha: 0.3)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: AppTheme.info, size: 14),
+                SizedBox(width: 6),
+                Expanded(child: Text(
+                  'Email, téléphone, mot de passe et code PIN ne sont pas modifiables ici.',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                )),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => setState(() => _editing = false),
+                style: OutlinedButton.styleFrom(foregroundColor: AppTheme.textMuted, side: const BorderSide(color: AppTheme.navyLight)),
+                child: const Text('Annuler'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _saveProfile,
+                child: const Text('Enregistrer'),
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniField(TextEditingController c, String label) {
+    return TextFormField(
+      controller: c,
+      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        filled: true, fillColor: AppTheme.navyCard,
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppTheme.navyLight)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.gold)),
+      ),
+    );
+  }
+
+  Widget _miniDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      dropdownColor: AppTheme.navyMedium,
+      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        filled: true, fillColor: AppTheme.navyCard,
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppTheme.navyLight)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.gold)),
+      ),
+      items: items.map((p) => DropdownMenuItem(value: p, child: Text(p, overflow: TextOverflow.ellipsis))).toList(),
+      onChanged: onChanged,
+    );
+  }
+
   Widget _buildAvatar(user) {
     final initiales = user?.nomComplet.isNotEmpty == true
         ? user!.nomComplet.split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join().toUpperCase()
@@ -56,32 +242,23 @@ class ProfileScreen extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 80,
-          height: 80,
+          width: 80, height: 80,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: const LinearGradient(colors: [AppTheme.gold, AppTheme.goldMuted]),
             boxShadow: [BoxShadow(color: AppTheme.gold.withValues(alpha: 0.3), blurRadius: 20)],
           ),
-          child: Center(
-            child: Text(initiales, style: const TextStyle(color: AppTheme.navyDark, fontSize: 28, fontWeight: FontWeight.bold)),
-          ),
+          child: Center(child: Text(initiales, style: const TextStyle(color: AppTheme.navyDark, fontSize: 28, fontWeight: FontWeight.bold))),
         ),
         const SizedBox(height: 12),
         Text(user?.nomComplet.isNotEmpty == true ? user!.nomComplet : 'Utilisateur',
             style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         Text(user?.telephone ?? '', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppTheme.gold.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
-          ),
-          child: Text(user?.pays ?? '', style: const TextStyle(color: AppTheme.gold, fontSize: 12, fontWeight: FontWeight.w500)),
-        ),
+        if (user?.email?.isNotEmpty == true) ...[
+          const SizedBox(height: 2),
+          Text(user!.email, style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+        ],
       ],
     );
   }
@@ -108,14 +285,6 @@ class ProfileScreen extends StatelessWidget {
             _statItem('Nb. d\'actifs', '${assets.assets.length}', AppTheme.textPrimary),
             Container(width: 1, height: 40, color: AppTheme.navyLight),
             _statItem('Revenus/mois', AppUtils.formatMontant(assets.loyersMensuelsTotaux, devise: devise), AppTheme.success),
-          ]),
-          const SizedBox(height: 12),
-          Container(height: 1, color: AppTheme.navyLight),
-          const SizedBox(height: 12),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-            _statItem('Immobilier', AppUtils.formatMontant(assets.totalImmobilier, devise: devise), AppTheme.colorImmobilier),
-            _statItem('Véhicules', AppUtils.formatMontant(assets.totalVehicules, devise: devise), AppTheme.colorVehicule),
-            _statItem('Investissements', AppUtils.formatMontant(assets.totalInvestissements, devise: devise), AppTheme.colorInvestissement),
           ]),
         ],
       ),
@@ -158,10 +327,7 @@ class ProfileScreen extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.navyLight,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                decoration: BoxDecoration(color: AppTheme.navyLight, borderRadius: BorderRadius.circular(8)),
                 child: Icon(icon, color: AppTheme.textSecondary, size: 18),
               ),
               const SizedBox(width: 14),
@@ -170,8 +336,7 @@ class ProfileScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
-                    if (subtitle.isNotEmpty)
-                      Text(subtitle, style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                    if (subtitle.isNotEmpty) Text(subtitle, style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
                   ],
                 ),
               ),
@@ -202,11 +367,11 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
         );
-    if (ok == true) {
-        if (!context.mounted) return;
-        await auth.logout();
-        if (context.mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
-      }
+        if (ok == true) {
+          if (!context.mounted) return;
+          await auth.logout();
+          if (context.mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),

@@ -48,6 +48,13 @@ enum AyantDroitType {
   autre,
 }
 
+enum PeriodiciteLoyer {
+  mensuelle,
+  trimestrielle,
+  semestrielle,
+  annuelle,
+}
+
 // ─── ASSET ────────────────────────────────────────────────────────────────────
 class Asset {
   final String id;
@@ -65,6 +72,7 @@ class Asset {
   List<String> photos;
   bool estLoue;
   double? loyerMensuel;
+  PeriodiciteLoyer periodiciteLoyer;
   String? locataire;
   DateTime? dateFinBail;
 
@@ -97,6 +105,7 @@ class Asset {
     this.photos = const [],
     this.estLoue = false,
     this.loyerMensuel,
+    this.periodiciteLoyer = PeriodiciteLoyer.mensuelle,
     this.locataire,
     this.dateFinBail,
     this.certificationStatus = CertificationStatus.nonDemande,
@@ -122,7 +131,9 @@ class Asset {
         'dateAcquisition': dateAcquisition.toIso8601String(),
         'dateDerniereEvaluation': dateDerniereEvaluation?.toIso8601String(),
         'details': details, 'photos': photos, 'estLoue': estLoue,
-        'loyerMensuel': loyerMensuel, 'locataire': locataire,
+        'loyerMensuel': loyerMensuel, 
+        'periodiciteLoyer': periodiciteLoyer.index,
+        'locataire': locataire,
         'dateFinBail': dateFinBail?.toIso8601String(),
         'certificationStatus': certificationStatus.index,
         'certificationId': certificationId,
@@ -149,6 +160,7 @@ class Asset {
         photos: List<String>.from(map['photos'] ?? []),
         estLoue: map['estLoue'] ?? false,
         loyerMensuel: map['loyerMensuel']?.toDouble(),
+        periodiciteLoyer: PeriodiciteLoyer.values[map['periodiciteLoyer'] ?? 0],
         locataire: map['locataire'],
         dateFinBail: map['dateFinBail'] != null ? DateTime.parse(map['dateFinBail']) : null,
         certificationStatus: CertificationStatus.values[map['certificationStatus'] ?? 0],
@@ -452,6 +464,17 @@ class MarketplaceListing {
   int vues;
   List<String> contactsInteresses;
 
+  // ─── Champs spécifiques VENTE
+  DateTime? dateMiseEnVente;
+  bool prixNegociable;
+  String conditionsVente; // conditions particulières
+
+  // ─── Champs spécifiques LOCATION
+  int dureeMois;           // durée en mois (0 = illimité)
+  int nbRenouvellements;   // -1 = illimité
+  double montantCaution;
+  double montantAvance;
+
   MarketplaceListing({
     required this.id,
     required this.assetId,
@@ -461,16 +484,25 @@ class MarketplaceListing {
     required this.type,
     this.statut = ListingStatus.actif,
     required this.prix,
-    this.devise = 'EUR',
+    this.devise = 'XOF',
     required this.titre,
     this.description = '',
     this.photos = const [],
-    this.pays = 'France',
+    this.pays = 'Burkina Faso',
     this.localisation = '',
     required this.datePublication,
     this.dateExpiration,
     this.vues = 0,
     this.contactsInteresses = const [],
+    // Vente
+    this.dateMiseEnVente,
+    this.prixNegociable = false,
+    this.conditionsVente = '',
+    // Location
+    this.dureeMois = 12,
+    this.nbRenouvellements = -1,
+    this.montantCaution = 0,
+    this.montantAvance = 0,
   });
 
   Map<String, dynamic> toMap() => {
@@ -483,6 +515,15 @@ class MarketplaceListing {
         'datePublication': datePublication.toIso8601String(),
         'dateExpiration': dateExpiration?.toIso8601String(),
         'vues': vues, 'contactsInteresses': contactsInteresses,
+        // Vente
+        'dateMiseEnVente': dateMiseEnVente?.toIso8601String(),
+        'prixNegociable': prixNegociable,
+        'conditionsVente': conditionsVente,
+        // Location
+        'dureeMois': dureeMois,
+        'nbRenouvellements': nbRenouvellements,
+        'montantCaution': montantCaution,
+        'montantAvance': montantAvance,
       };
 
   factory MarketplaceListing.fromMap(Map<String, dynamic> map) => MarketplaceListing(
@@ -494,16 +535,25 @@ class MarketplaceListing {
         type: ListingType.values[map['type'] ?? 0],
         statut: ListingStatus.values[map['statut'] ?? 0],
         prix: (map['prix'] ?? 0).toDouble(),
-        devise: map['devise'] ?? 'EUR',
+        devise: map['devise'] ?? 'XOF',
         titre: map['titre'] ?? '',
         description: map['description'] ?? '',
         photos: List<String>.from(map['photos'] ?? []),
-        pays: map['pays'] ?? 'France',
+        pays: map['pays'] ?? 'Burkina Faso',
         localisation: map['localisation'] ?? '',
         datePublication: DateTime.parse(map['datePublication'] ?? DateTime.now().toIso8601String()),
         dateExpiration: map['dateExpiration'] != null ? DateTime.parse(map['dateExpiration']) : null,
         vues: map['vues'] ?? 0,
         contactsInteresses: List<String>.from(map['contactsInteresses'] ?? []),
+        // Vente
+        dateMiseEnVente: map['dateMiseEnVente'] != null ? DateTime.parse(map['dateMiseEnVente']) : null,
+        prixNegociable: map['prixNegociable'] ?? false,
+        conditionsVente: map['conditionsVente'] ?? '',
+        // Location
+        dureeMois: map['dureeMois'] ?? 12,
+        nbRenouvellements: map['nbRenouvellements'] ?? -1,
+        montantCaution: (map['montantCaution'] ?? 0).toDouble(),
+        montantAvance: (map['montantAvance'] ?? 0).toDouble(),
       );
 }
 
@@ -617,6 +667,7 @@ class AyantDroit {
 
 class RepartitionBien {
   final String id;
+  final String testamentId;
   final String assetId;
   String assetNom;
   final String ayantDroitId;
@@ -627,6 +678,7 @@ class RepartitionBien {
 
   RepartitionBien({
     required this.id,
+    required this.testamentId,
     required this.assetId,
     this.assetNom = '',
     required this.ayantDroitId,
@@ -637,13 +689,13 @@ class RepartitionBien {
   });
 
   Map<String, dynamic> toMap() => {
-        'id': id, 'assetId': assetId, 'assetNom': assetNom,
+        'id': id, 'testamentId': testamentId, 'assetId': assetId, 'assetNom': assetNom,
         'ayantDroitId': ayantDroitId, 'ayantDroitNom': ayantDroitNom,
         'pourcentage': pourcentage, 'conditions': conditions, 'notes': notes,
       };
 
   factory RepartitionBien.fromMap(Map<String, dynamic> map) => RepartitionBien(
-        id: map['id'] ?? '', assetId: map['assetId'] ?? '',
+        id: map['id'] ?? '', testamentId: map['testamentId'] ?? '', assetId: map['assetId'] ?? '',
         assetNom: map['assetNom'] ?? '',
         ayantDroitId: map['ayantDroitId'] ?? '',
         ayantDroitNom: map['ayantDroitNom'] ?? '',
@@ -653,36 +705,82 @@ class RepartitionBien {
 }
 
 // ─── LOYER ────────────────────────────────────────────────────────────────────
+// ─── LOYER PERIODE ───────────────────────────────────────────────────────────────
+enum StatutPeriodeLoyer { enAttente, paye, impaye }
+
+class EncaissementPeriode {
+  int mois;
+  int annee;
+  StatutPeriodeLoyer statut;
+  DateTime? datePaiement;
+  double? montantPaye; // peut différer si paiement partiel
+  String? notes;
+
+  EncaissementPeriode({
+    required this.mois,
+    required this.annee,
+    this.statut = StatutPeriodeLoyer.enAttente,
+    this.datePaiement,
+    this.montantPaye,
+    this.notes,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'mois': mois,
+    'annee': annee,
+    'statut': statut.index,
+    'datePaiement': datePaiement?.toIso8601String(),
+    'montantPaye': montantPaye,
+    'notes': notes,
+  };
+
+  factory EncaissementPeriode.fromMap(Map<String, dynamic> m) => EncaissementPeriode(
+    mois: m['mois'] ?? DateTime.now().month,
+    annee: m['annee'] ?? DateTime.now().year,
+    statut: StatutPeriodeLoyer.values[m['statut'] ?? 0],
+    datePaiement: m['datePaiement'] != null ? DateTime.parse(m['datePaiement']) : null,
+    montantPaye: m['montantPaye']?.toDouble(),
+    notes: m['notes'],
+  );
+}
+
 class Loyer {
   final String id;
   final String assetId;
   double montant;
   String devise;
-  DateTime datePaiement;
   bool estPaye;
   String? notes;
   int mois;
   int annee;
+  String? locataireNom;
+  // Historique des périodes d'encaissement
+  List<EncaissementPeriode> periodes;
 
   Loyer({
     required this.id, required this.assetId, required this.montant,
-    this.devise = 'EUR', required this.datePaiement,
+    this.devise = 'XOF',
     this.estPaye = false, this.notes,
     required this.mois, required this.annee,
+    this.locataireNom,
+    this.periodes = const [],
   });
 
   Map<String, dynamic> toMap() => {
         'id': id, 'assetId': assetId, 'montant': montant, 'devise': devise,
-        'datePaiement': datePaiement.toIso8601String(),
         'estPaye': estPaye, 'notes': notes, 'mois': mois, 'annee': annee,
+        'locataireNom': locataireNom,
+        'periodes': periodes.map((p) => p.toMap()).toList(),
       };
 
   factory Loyer.fromMap(Map<String, dynamic> map) => Loyer(
         id: map['id'] ?? '', assetId: map['assetId'] ?? '',
-        montant: (map['montant'] ?? 0).toDouble(), devise: map['devise'] ?? 'EUR',
-        datePaiement: DateTime.parse(map['datePaiement'] ?? DateTime.now().toIso8601String()),
+        montant: (map['montant'] ?? 0).toDouble(), devise: map['devise'] ?? 'XOF',
         estPaye: map['estPaye'] ?? false, notes: map['notes'],
         mois: map['mois'] ?? DateTime.now().month, annee: map['annee'] ?? DateTime.now().year,
+        locataireNom: map['locataireNom'],
+        periodes: (map['periodes'] as List<dynamic>? ?? []).map((p) =>
+            EncaissementPeriode.fromMap(Map<String, dynamic>.from(p))).toList(),
       );
 }
 
@@ -690,30 +788,44 @@ class Loyer {
 class UserProfile {
   String id;
   String telephone;
+  String email;
   String nom;
   String prenom;
   String pays;
   String devise;
   DateTime dateCreation;
+  bool emailVerifie;
+  String? pinCode; // SHA-256 hash du code PIN 4 chiffres
 
   UserProfile({
     required this.id, required this.telephone,
+    this.email = '',
     this.nom = '', this.prenom = '',
     this.pays = 'France', this.devise = 'EUR',
     required this.dateCreation,
+    this.emailVerifie = false,
+    this.pinCode,
   });
 
   String get nomComplet => '$prenom $nom'.trim();
+  bool get hasPinConfigured => pinCode != null && pinCode!.isNotEmpty;
 
   Map<String, dynamic> toMap() => {
-        'id': id, 'telephone': telephone, 'nom': nom, 'prenom': prenom,
-        'pays': pays, 'devise': devise, 'dateCreation': dateCreation.toIso8601String(),
+        'id': id, 'telephone': telephone, 'email': email,
+        'nom': nom, 'prenom': prenom,
+        'pays': pays, 'devise': devise,
+        'dateCreation': dateCreation.toIso8601String(),
+        'emailVerifie': emailVerifie,
+        'pinCode': pinCode,
       };
 
   factory UserProfile.fromMap(Map<String, dynamic> map) => UserProfile(
         id: map['id'] ?? '', telephone: map['telephone'] ?? '',
+        email: map['email'] ?? '',
         nom: map['nom'] ?? '', prenom: map['prenom'] ?? '',
         pays: map['pays'] ?? 'France', devise: map['devise'] ?? 'EUR',
         dateCreation: DateTime.parse(map['dateCreation'] ?? DateTime.now().toIso8601String()),
+        emailVerifie: (map['emailVerifie'] ?? false) == true || (map['emailVerifie'] ?? 0) == 1,
+        pinCode: map['pinCode'],
       );
 }

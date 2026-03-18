@@ -12,8 +12,8 @@ import 'add_asset_screen.dart';
 import 'loyers_screen.dart';
 import 'comptes_screen.dart';
 import 'testament_screen.dart';
-import 'autorites_screen.dart';
 import 'profile_screen.dart';
+import 'marketplace_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -101,9 +101,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _DashboardTab extends StatelessWidget {
+class _DashboardTab extends StatefulWidget {
   const _DashboardTab();
+  @override
+  State<_DashboardTab> createState() => _DashboardTabState();
+}
 
+class _DashboardTabState extends State<_DashboardTab> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -112,6 +116,7 @@ class _DashboardTab extends StatelessWidget {
           final user = auth.user;
           final total = assets.patrimoineTotal;
           final devise = user?.devise ?? 'EUR';
+          final visible = auth.balancesVisible;
 
           return RefreshIndicator(
             onRefresh: () => assets.loadData(),
@@ -119,7 +124,7 @@ class _DashboardTab extends StatelessWidget {
             backgroundColor: AppTheme.navyMedium,
             child: CustomScrollView(
               slivers: [
-                SliverToBoxAdapter(child: _buildHeader(context, user, total, devise, assets)),
+                SliverToBoxAdapter(child: _buildHeader(context, auth, user, total, devise, assets, visible)),
                 SliverToBoxAdapter(child: _buildChart(assets)),
                 SliverToBoxAdapter(child: _buildQuickActions(context, assets)),
                 SliverToBoxAdapter(child: _buildCategories(assets, devise)),
@@ -133,7 +138,96 @@ class _DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, user, double total, String devise, AssetProvider assets) {
+  Widget _buildHeader(BuildContext context, AuthProvider auth, user, double total, String devise, AssetProvider assets, bool visible) {
+    final maskedAmount = '••••••';
+    
+    Future<void> toggleVisibility() async {
+      if (visible) {
+        auth.hideBalances();
+        return;
+      }
+      // Ask PIN
+      if (!context.mounted) return;
+      if (auth.user?.hasPinConfigured == true) {
+        final List<String> digits = [];
+        String? error;
+        bool loading = false;
+
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => StatefulBuilder(
+            builder: (ctx2, setLocal) => Dialog(
+              backgroundColor: AppTheme.navyMedium,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.visibility_rounded, color: AppTheme.gold, size: 32),
+                    const SizedBox(height: 10),
+                    const Text('Afficher les soldes', style: TextStyle(color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(4, (i) => Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        width: 14, height: 14,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: i < digits.length ? AppTheme.gold : AppTheme.navyLight,
+                          border: Border.all(color: AppTheme.gold, width: 1.5),
+                        ),
+                      )),
+                    ),
+                    if (error != null) ...[const SizedBox(height: 8), Text(error!, style: const TextStyle(color: AppTheme.danger, fontSize: 12))],
+                    const SizedBox(height: 16),
+                    if (loading) const CircularProgressIndicator(color: AppTheme.gold)
+                    else GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 3,
+                      childAspectRatio: 1.8,
+                      mainAxisSpacing: 6,
+                      crossAxisSpacing: 6,
+                      children: ['1','2','3','4','5','6','7','8','9','','0','⌫'].map((k) {
+                        if (k.isEmpty) return const SizedBox();
+                        if (k == '⌫') {
+                          return InkWell(
+                            onTap: () { if (digits.isNotEmpty) setLocal(() => digits.removeLast()); },
+                            child: Container(decoration: BoxDecoration(color: AppTheme.navyCard, borderRadius: BorderRadius.circular(8)), child: const Center(child: Icon(Icons.backspace_outlined, color: AppTheme.textMuted, size: 18))),
+                          );
+                        }
+                        return InkWell(
+                          onTap: () async {
+                            if (digits.length >= 4) return;
+                            setLocal(() { digits.add(k); error = null; });
+                            if (digits.length == 4) {
+                              setLocal(() => loading = true);
+                              final ok = await auth.showBalances(digits.join());
+                              if (ok && ctx2.mounted) { Navigator.pop(ctx2); }
+                              else { setLocal(() { digits.clear(); error = 'Code PIN incorrect.'; loading = false; }); }
+                            }
+                          },
+                          child: Container(decoration: BoxDecoration(color: AppTheme.navyCard, borderRadius: BorderRadius.circular(8)), child: Center(child: Text(k, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w600)))),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton(onPressed: () => Navigator.pop(ctx2), child: const Text('Annuler', style: TextStyle(color: AppTheme.textMuted))),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      } else {
+        auth.hideBalances();
+        auth.balancesVisible; // already visible without PIN
+        await auth.showBalances('');
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       decoration: const BoxDecoration(
@@ -152,27 +246,9 @@ class _DashboardTab extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Bonjour,', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+                  const Text('Bonjour,', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
                   Text(user?.nomComplet.isNotEmpty == true ? user!.nomComplet : 'Investisseur',
                       style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              Row(
-                children: [
-                  // Bouton Autorités
-                  GestureDetector(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AutoritesScreen())),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      margin: const EdgeInsets.only(right: 8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.colorInvestissement.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.colorInvestissement.withValues(alpha: 0.4)),
-                      ),
-                      child: const Icon(Icons.gavel_rounded, color: AppTheme.colorInvestissement, size: 22),
-                    ),
-                  ),
                 ],
               ),
             ],
@@ -198,11 +274,15 @@ class _DashboardTab extends StatelessWidget {
                   children: [
                     const Icon(Icons.account_balance_rounded, color: AppTheme.gold, size: 16),
                     const SizedBox(width: 8),
-                    Text('PATRIMOINE NET', style: TextStyle(color: AppTheme.gold.withValues(alpha: 0.8), fontSize: 11, letterSpacing: 1.5, fontWeight: FontWeight.w600)),
+                    Expanded(child: Text('PATRIMOINE NET', style: TextStyle(color: AppTheme.gold.withValues(alpha: 0.8), fontSize: 11, letterSpacing: 1.5, fontWeight: FontWeight.w600))),
+                    GestureDetector(
+                      onTap: toggleVisibility,
+                      child: Icon(visible ? Icons.visibility_rounded : Icons.visibility_off_rounded, color: AppTheme.gold, size: 18),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(AppUtils.formatMontant(total, devise: devise),
+                Text(visible ? AppUtils.formatMontant(total, devise: devise) : maskedAmount,
                     style: const TextStyle(color: AppTheme.textPrimary, fontSize: 32, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Row(
@@ -233,8 +313,8 @@ class _DashboardTab extends StatelessWidget {
                 children: [
                   const Icon(Icons.payments_rounded, color: AppTheme.success, size: 18),
                   const SizedBox(width: 10),
-                  Text('Revenus locatifs : ', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                  Text(AppUtils.formatMontant(assets.loyersMensuelsTotaux, devise: devise),
+                  const Text('Revenus locatifs : ', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                  Text(visible ? AppUtils.formatMontant(assets.loyersMensuelsTotaux, devise: devise) : '••••',
                       style: const TextStyle(color: AppTheme.success, fontSize: 14, fontWeight: FontWeight.bold)),
                   const Text('/mois', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
                 ],
@@ -337,32 +417,61 @@ class _DashboardTab extends StatelessWidget {
     final certsPending = assets.certifications.where((c) =>
         c.statut == CertificationStatus.enAttente || c.statut == CertificationStatus.enCours).length;
 
-    if (certsPending == 0) return const SizedBox();
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: GestureDetector(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AutoritesScreen())),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppTheme.warning.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.warning.withValues(alpha: 0.4)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.hourglass_empty_rounded, color: AppTheme.warning, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '$certsPending certification${certsPending > 1 ? "s" : ""} en attente de traitement',
-                  style: const TextStyle(color: AppTheme.warning, fontSize: 13, fontWeight: FontWeight.w600),
-                ),
+      child: Column(
+        children: [
+          // Bouton Marketplace
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MarketplaceScreen())),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.colorInvestissement.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.colorInvestissement.withValues(alpha: 0.4)),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppTheme.warning),
-            ],
+              child: const Row(
+                children: [
+                  Icon(Icons.storefront_rounded, color: AppTheme.colorInvestissement, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Marketplace : Acheter ou Louer des actifs',
+                      style: TextStyle(color: AppTheme.colorInvestissement, fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: AppTheme.colorInvestissement),
+                ],
+              ),
+            ),
           ),
-        ),
+          
+          if (certsPending > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.warning.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.hourglass_empty_rounded, color: AppTheme.warning, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '$certsPending certification${certsPending > 1 ? "s" : ""} en attente de traitement',
+                      style: const TextStyle(color: AppTheme.warning, fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: AppTheme.warning),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

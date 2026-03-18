@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/asset_model.dart';
 import '../utils/app_utils.dart';
+import '../widgets/pin_dialog.dart';
 
 class TestamentScreen extends StatefulWidget {
   const TestamentScreen({super.key});
@@ -310,8 +311,14 @@ class _TestamentTab extends StatelessWidget {
     );
   }
 
-  void _creerTestament(BuildContext context, AssetProvider assets, String userId) {
+  Future<void> _creerTestament(BuildContext context, AssetProvider assets, String userId) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user?.hasPinConfigured == true) {
+      final ok = await PinDialog.show(context);
+      if (!ok || !context.mounted) return;
+    }
     final notesCtrl = TextEditingController();
+    if (!context.mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -357,11 +364,17 @@ class _TestamentTab extends StatelessWidget {
     );
   }
 
-  void _editTestament(BuildContext context, AssetProvider assets) {
+  Future<void> _editTestament(BuildContext context, AssetProvider assets) async {
     if (testament == null) return;
+    final auth = context.read<AuthProvider>();
+    if (auth.user?.hasPinConfigured == true) {
+      final ok = await PinDialog.show(context);
+      if (!ok || !context.mounted) return;
+    }
     final notesCtrl = TextEditingController(text: testament!.notes);
     final notaireCtrl = TextEditingController(text: testament!.notaireNom ?? '');
     final contactCtrl = TextEditingController(text: testament!.notaireContact ?? '');
+    if (!context.mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -439,7 +452,12 @@ class _TestamentTab extends StatelessWidget {
     );
   }
 
-  void _finaliserTestament(BuildContext context, AssetProvider assets) {
+  Future<void> _finaliserTestament(BuildContext context, AssetProvider assets) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user?.hasPinConfigured == true) {
+      final ok = await PinDialog.show(context);
+      if (!ok || !context.mounted) return;
+    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1146,8 +1164,10 @@ class _RepartitionTab extends StatelessWidget {
                       if (selectedAsset == null || selectedAyantDroit == null || pctCtrl.text.isEmpty) return;
                       final pct = double.tryParse(pctCtrl.text) ?? 0;
                       if (pct <= 0 || pct > 100) return;
+                      final t = testament!;
                       final r = RepartitionBien(
                         id: assets.generateId(),
+                        testamentId: t.id,
                         assetId: selectedAsset!.id,
                         assetNom: selectedAsset!.nom,
                         ayantDroitId: selectedAyantDroit!.id,
@@ -1155,7 +1175,6 @@ class _RepartitionTab extends StatelessWidget {
                         pourcentage: pct,
                         conditions: conditionsCtrl.text.trim(),
                       );
-                      final t = testament!;
                       assets.saveTestament(Testament(
                         id: t.id, userId: t.userId, statut: t.statut,
                         notes: t.notes, dateCreation: t.dateCreation,

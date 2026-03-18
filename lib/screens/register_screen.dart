@@ -13,6 +13,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _telC = TextEditingController();
+  final _emailC = TextEditingController();
   final _pwdC = TextEditingController();
   final _confirmC = TextEditingController();
   final _nomC = TextEditingController();
@@ -24,23 +25,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _telC.dispose(); _pwdC.dispose(); _confirmC.dispose();
-    _nomC.dispose(); _prenomC.dispose();
+    _telC.dispose(); _emailC.dispose(); _pwdC.dispose();
+    _confirmC.dispose(); _nomC.dispose(); _prenomC.dispose();
     super.dispose();
   }
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
-    final ok = await auth.register(
+    final otp = await auth.register(
       telephone: _telC.text.trim(),
+      email: _emailC.text.trim(),
       password: _pwdC.text,
       nom: _nomC.text.trim(),
       prenom: _prenomC.text.trim(),
       pays: _selectedPays,
       devise: _selectedDevise,
     );
-    if (ok && mounted) Navigator.pushReplacementNamed(context, '/home');
+    if (!mounted) return;
+    if (otp != null) {
+      // Simulation : afficher l'OTP en SnackBar jusqu'à l'intégration backend
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('📧 Email envoyé à ${_emailC.text.trim()}\n[Simulation] Code OTP : $otp'),
+        backgroundColor: AppTheme.info,
+        duration: const Duration(seconds: 12),
+      ));
+      Navigator.pushReplacementNamed(
+        context,
+        '/otp-verify',
+        arguments: _emailC.text.trim(),
+      );
+    }
   }
 
   @override
@@ -73,8 +88,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Expanded(child: _buildField(_nomC, 'Nom', Icons.person_outline_rounded)),
                     ]),
                     const SizedBox(height: 16),
-                    _buildField(_telC, 'Numéro de téléphone', Icons.phone_rounded, hint: '+33 6 00 00 00 00', type: TextInputType.phone,
-                      validator: (v) => (v == null || v.isEmpty) ? 'Requis' : null),
+                    _buildField(_telC, 'Numéro de téléphone', Icons.phone_rounded,
+                        hint: '+33 6 00 00 00 00', type: TextInputType.phone),
                     const SizedBox(height: 16),
                     const Text('Région & devise',
                         style: TextStyle(color: AppTheme.gold, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 1)),
@@ -88,10 +103,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const Text('Sécurité',
                         style: TextStyle(color: AppTheme.gold, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 1)),
                     const SizedBox(height: 12),
+                    _buildField(_emailC, 'Adresse email', Icons.email_rounded,
+                        hint: 'example@email.com', type: TextInputType.emailAddress,
+                        validator: (v) => (v == null || !v.contains('@')) ? 'Email invalide' : null),
+                    const SizedBox(height: 12),
                     _buildPwdField(_pwdC, 'Mot de passe', _obscurePwd, () => setState(() => _obscurePwd = !_obscurePwd)),
                     const SizedBox(height: 12),
-                    _buildPwdField(_confirmC, 'Confirmer le mot de passe', _obscureConfirm, () => setState(() => _obscureConfirm = !_obscureConfirm),
-                      validator: (v) => v != _pwdC.text ? 'Les mots de passe ne correspondent pas' : null),
+                    _buildPwdField(_confirmC, 'Confirmer le mot de passe', _obscureConfirm,
+                        () => setState(() => _obscureConfirm = !_obscureConfirm),
+                        validator: (v) => v != _pwdC.text ? 'Les mots de passe ne correspondent pas' : null),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.info.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.info.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline_rounded, color: AppTheme.info, size: 16),
+                          SizedBox(width: 8),
+                          Expanded(child: Text(
+                            'Après inscription, un code de vérification sera envoyé à votre email. Puis, vous devrez configurer un code PIN à 4 chiffres distinct de votre mot de passe.',
+                            style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                          )),
+                        ],
+                      ),
+                    ),
                     if (auth.error != null) ...[
                       const SizedBox(height: 12),
                       Container(
@@ -131,11 +171,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       controller: c,
       keyboardType: type,
       style: const TextStyle(color: AppTheme.textPrimary),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(icon, color: AppTheme.gold, size: 20),
-      ),
+      decoration: InputDecoration(labelText: label, hintText: hint, prefixIcon: Icon(icon, color: AppTheme.gold, size: 20)),
       validator: validator ?? (v) => (v == null || v.isEmpty) ? 'Requis' : null,
       onChanged: (_) => context.read<AuthProvider>().clearError(),
     );
@@ -149,15 +185,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: const Icon(Icons.lock_rounded, color: AppTheme.gold, size: 20),
-        suffixIcon: IconButton(
-          icon: Icon(obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded),
-          onPressed: toggle,
-        ),
+        suffixIcon: IconButton(icon: Icon(obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded), onPressed: toggle),
       ),
-      validator: validator ?? (v) {
-        if (v == null || v.length < 6) return 'Minimum 6 caractères';
-        return null;
-      },
+      validator: validator ?? (v) { if (v == null || v.length < 6) return 'Minimum 6 caractères'; return null; },
       onChanged: (_) => context.read<AuthProvider>().clearError(),
     );
   }
@@ -167,10 +197,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       initialValue: value,
       dropdownColor: AppTheme.navyMedium,
       style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
-      decoration: InputDecoration(
-        labelText: label,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      ),
+      decoration: InputDecoration(labelText: label, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12)),
       items: items.map((p) => DropdownMenuItem(value: p, child: Text(p, overflow: TextOverflow.ellipsis))).toList(),
       onChanged: onChanged,
     );

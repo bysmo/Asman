@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../services/database_service.dart';
 import '../providers/asset_provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
@@ -51,7 +52,7 @@ class CertificationScreen extends StatelessWidget {
                 style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
           ]),
           ElevatedButton.icon(
-            onPressed: () => _showDemandeCertif(context, context.read<AssetProvider>()),
+            onPressed: () => showDemandeCertif(context, context.read<AssetProvider>()),
             icon: const Icon(Icons.verified_rounded, size: 18),
             label: const Text('Demander'),
           ),
@@ -131,17 +132,6 @@ class CertificationScreen extends StatelessWidget {
             Text(c.autoriteNom, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
           ]),
         ],
-        if (c.statut == CertificationStatus.enAttente) ...[
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: OutlinedButton.icon(
-              onPressed: () => prov.approuverCertification(c.id),
-              icon: const Icon(Icons.check_rounded, size: 16, color: AppTheme.success),
-              label: const Text('Simuler approbation', style: TextStyle(color: AppTheme.success, fontSize: 12)),
-              style: OutlinedButton.styleFrom(side: const BorderSide(color: AppTheme.success), padding: const EdgeInsets.symmetric(vertical: 8)),
-            )),
-          ]),
-        ],
         if (c.statut == CertificationStatus.certifie && c.dateTraitement != null) ...[
           const SizedBox(height: 8),
           Row(children: [
@@ -176,7 +166,7 @@ class CertificationScreen extends StatelessWidget {
       ),
       const SizedBox(height: 24),
       ElevatedButton.icon(
-        onPressed: () => _showDemandeCertif(context, prov),
+        onPressed: () => showDemandeCertif(context, prov),
         icon: const Icon(Icons.verified_rounded),
         label: const Text('Demander une certification'),
       ),
@@ -211,21 +201,43 @@ class CertificationScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _showDemandeCertif(BuildContext context, AssetProvider prov) async {
+  static Future<void> showDemandeCertif(BuildContext context, AssetProvider prov, {Asset? preselectedAsset}) async {
     if (prov.assets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Ajoutez d\'abord un actif à certifier'), backgroundColor: AppTheme.warning));
       return;
     }
-    Asset? selectedAsset = prov.assets.firstWhere(
+    Asset? selectedAsset = preselectedAsset ?? prov.assets.firstWhere(
       (a) => a.certificationStatus == CertificationStatus.nonDemande,
       orElse: () => prov.assets.first,
     );
     String autoriteType = 'notaire';
-    final autoriteNomC = TextEditingController();
-    final autoriteContactC = TextEditingController();
     final fraisC = TextEditingController(text: '50000');
     final devise = context.read<AuthProvider>().user?.devise ?? 'EUR';
+    
+    List<String> requiredDocs = [];
+    Map<String, String> uploadedDocs = {};
+    bool isLoadingDocs = true;
+
+    Future<void> loadDocs(Asset? a, void Function(void Function()) setS) async {
+      if (a == null) return;
+      setS(() => isLoadingDocs = true);
+      requiredDocs = await DatabaseService().getRequiredDocuments(a.type);
+      uploadedDocs.clear();
+
+      // Pré-remplir avec les documents déjà attachés à l'actif (table SQLite asset_documents)
+      final existingDocs = await DatabaseService().getAssetDocuments(a.id);
+      for (var doc in existingDocs) {
+        final nomDoc = doc['nom_document'] as String;
+        final pathDoc = doc['file_path'] as String;
+        // Si le document attaché correspond à un requis, on le lie
+        if (requiredDocs.contains(nomDoc)) {
+          uploadedDocs[nomDoc] = pathDoc;
+        }
+      }
+
+      setS(() => isLoadingDocs = false);
+    }
 
     await showModalBottomSheet(
       context: context,
@@ -233,98 +245,152 @@ class CertificationScreen extends StatelessWidget {
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx2, setS) => Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx2).viewInsets.bottom + 24),
-          child: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                const Icon(Icons.verified_rounded, color: AppTheme.gold, size: 20),
-                const SizedBox(width: 8),
-                const Text('Demande de certification', style: TextStyle(color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
-              ]),
-              const SizedBox(height: 16),
-              const Text('ACTIF À CERTIFIER', style: TextStyle(color: AppTheme.gold, fontSize: 11, letterSpacing: 1, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<Asset>(
-                value: selectedAsset,
-                dropdownColor: AppTheme.navyMedium,
-                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.inventory_2_rounded, color: AppTheme.gold, size: 20)),
-                items: prov.assets.map((a) => DropdownMenuItem(
-                  value: a,
-                  child: Text('${a.nom} (${AppUtils.getLabelForType(a.type)})', overflow: TextOverflow.ellipsis),
-                )).toList(),
-                onChanged: (a) => setS(() => selectedAsset = a),
-              ),
-              const SizedBox(height: 14),
-              const Text('TYPE D\'AUTORITÉ', style: TextStyle(color: AppTheme.gold, fontSize: 11, letterSpacing: 1, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, children: ['notaire', 'huissier', 'cadastre', 'tribunal'].map((t) {
-                final sel = autoriteType == t;
-                return GestureDetector(
-                  onTap: () => setS(() => autoriteType = t),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: sel ? AppTheme.gold.withValues(alpha: 0.2) : AppTheme.navyCard,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: sel ? AppTheme.gold : AppTheme.navyLight),
-                    ),
-                    child: Text(t[0].toUpperCase() + t.substring(1),
-                        style: TextStyle(color: sel ? AppTheme.gold : AppTheme.textMuted, fontSize: 13, fontWeight: FontWeight.w500)),
-                  ),
-                );
-              }).toList()),
-              const SizedBox(height: 14),
-              _tf3(autoriteNomC, 'Nom de l\'autorité', Icons.business_rounded),
-              const SizedBox(height: 10),
-              _tf3(autoriteContactC, 'Contact de l\'autorité', Icons.phone_rounded),
-              const SizedBox(height: 10),
-              _tf3(fraisC, 'Frais de certification ($devise)', Icons.payments_rounded, type: TextInputType.number),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: AppTheme.info.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-                child: Row(children: [
-                  const Icon(Icons.info_outline_rounded, color: AppTheme.info, size: 14),
+        builder: (ctx2, setS) {
+          if (isLoadingDocs && requiredDocs.isEmpty && selectedAsset != null) {
+            loadDocs(selectedAsset, setS);
+          }
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx2).viewInsets.bottom + 24),
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Icon(Icons.verified_rounded, color: AppTheme.gold, size: 20),
                   const SizedBox(width: 8),
-                  const Expanded(child: Text('Partage des revenus : 70% Autorité · 30% Asman Platform',
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 11))),
+                  const Text('Demande de certification', style: TextStyle(color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
                 ]),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    if (selectedAsset == null) return;
-                    await prov.demanderCertification(CertificationDemande(
-                      id: prov.generateId(),
-                      assetId: selectedAsset!.id,
-                      assetNom: selectedAsset!.nom,
-                      assetType: selectedAsset!.type,
-                      autoriteType: autoriteType,
-                      autoriteNom: autoriteNomC.text.trim(),
-                      autoriteContact: autoriteContactC.text.trim(),
-                      frais: double.tryParse(fraisC.text.replaceAll(',', '.')) ?? 0,
-                      devise: devise,
-                      dateDemande: DateTime.now(),
-                    ));
-                    if (ctx2.mounted) Navigator.pop(ctx2);
+                const SizedBox(height: 16),
+                const Text('ACTIF À CERTIFIER', style: TextStyle(color: AppTheme.gold, fontSize: 11, letterSpacing: 1, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<Asset>(
+                  value: selectedAsset,
+                  dropdownColor: AppTheme.navyMedium,
+                  style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+                  decoration: const InputDecoration(prefixIcon: Icon(Icons.inventory_2_rounded, color: AppTheme.gold, size: 20)),
+                  items: prov.assets.map((a) => DropdownMenuItem(
+                    value: a,
+                    child: Text('${a.nom} (${AppUtils.getLabelForType(a.type)})', overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: (a) {
+                    setS(() => selectedAsset = a);
+                    loadDocs(a, setS);
                   },
-                  icon: const Icon(Icons.send_rounded, size: 18),
-                  label: const Text('Soumettre la demande', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
-              ),
-            ]),
-          ),
-        ),
+                const SizedBox(height: 14),
+                const Text('TYPE D\'AUTORITÉ', style: TextStyle(color: AppTheme.gold, fontSize: 11, letterSpacing: 1, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, children: ['notaire', 'huissier', 'cadastre', 'tribunal'].map((t) {
+                  final sel = autoriteType == t;
+                  return GestureDetector(
+                    onTap: () => setS(() => autoriteType = t),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: sel ? AppTheme.gold.withValues(alpha: 0.2) : AppTheme.navyCard,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: sel ? AppTheme.gold : AppTheme.navyLight),
+                      ),
+                      child: Text(t[0].toUpperCase() + t.substring(1),
+                          style: TextStyle(color: sel ? AppTheme.gold : AppTheme.textMuted, fontSize: 13, fontWeight: FontWeight.w500)),
+                    ),
+                  );
+                }).toList()),
+                const SizedBox(height: 14),
+                _tf3(fraisC, 'Frais de traitement estimés ($devise)', Icons.payments_rounded, type: TextInputType.number),
+                const SizedBox(height: 20),
+                
+                // --- SECTION DOCUMENTS OBLIGATOIRES ---
+                const Text('DOCUMENTS REQUIS', style: TextStyle(color: AppTheme.gold, fontSize: 11, letterSpacing: 1, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                if (isLoadingDocs) 
+                  const Center(child: Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.gold)))
+                else if (requiredDocs.isEmpty)
+                  const Text('Aucun document requis pour ce type.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13))
+                else
+                  ...requiredDocs.map((docName) {
+                    final estUploade = uploadedDocs.containsKey(docName);
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.navyCard,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: estUploade ? AppTheme.success.withValues(alpha: 0.5) : AppTheme.navyLight),
+                      ),
+                      child: Row(children: [
+                        Icon(estUploade ? Icons.check_circle_rounded : Icons.insert_drive_file_rounded, 
+                             color: estUploade ? AppTheme.success : AppTheme.textMuted, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(docName, style: TextStyle(
+                          color: estUploade ? AppTheme.textPrimary : AppTheme.textSecondary, 
+                          fontSize: 13, fontWeight: estUploade ? FontWeight.w600 : FontWeight.w500
+                        ))),
+                        if (!estUploade)
+                          TextButton(
+                            onPressed: () {
+                              // Simulation d'upload du fichier manuel
+                              setS(() => uploadedDocs[docName] = '/simulated/path_to_$docName.pdf');
+                            },
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              backgroundColor: AppTheme.info.withValues(alpha: 0.1),
+                            ),
+                            child: const Text('Joindre', style: TextStyle(color: AppTheme.info, fontSize: 12)),
+                          )
+                        else
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: AppTheme.danger, size: 18),
+                            onPressed: () => setS(() => uploadedDocs.remove(docName)),
+                          ),
+                      ]),
+                    );
+                  }).toList(),
+                  
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      if (selectedAsset == null) return;
+                      // Vérification: tous les documents sont-ils fournis ?
+                      if (uploadedDocs.length < requiredDocs.length) {
+                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Veuillez joindre tous les documents requis.'),
+                          backgroundColor: AppTheme.danger,
+                        ));
+                        return;
+                      }
+
+                      List<Map<String, String>> docsList = [];
+                      for(var entry in uploadedDocs.entries) {
+                        docsList.add({'nomDocument': entry.key, 'filePath': entry.value});
+                      }
+
+                      await prov.demanderCertification(CertificationDemande(
+                        id: prov.generateId(),
+                        assetId: selectedAsset!.id,
+                        assetNom: selectedAsset!.nom,
+                        assetType: selectedAsset!.type,
+                        autoriteType: autoriteType,
+                        frais: double.tryParse(fraisC.text.replaceAll(',', '.')) ?? 0,
+                        devise: devise,
+                        dateDemande: DateTime.now(),
+                      ), docsList);
+                      if (ctx2.mounted) Navigator.pop(ctx2);
+                    },
+                    icon: const Icon(Icons.send_rounded, size: 18),
+                    label: const Text('Soumettre la demande', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ]),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _tf3(TextEditingController c, String label, IconData icon, {TextInputType type = TextInputType.text}) {
+  static Widget _tf3(TextEditingController c, String label, IconData icon, {TextInputType type = TextInputType.text}) {
     return TextField(
       controller: c, keyboardType: type,
       style: const TextStyle(color: AppTheme.textPrimary),

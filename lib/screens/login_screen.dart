@@ -73,7 +73,15 @@ class _LoginScreenState extends State<LoginScreen>
                   const SizedBox(height: 24),
                   // Bouton connexion
                   _buildLoginButton(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
+                  // Lien mot de passe oublié
+                  Center(
+                    child: TextButton(
+                      onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
+                      child: const Text('Mot de passe oublié ?', style: TextStyle(color: AppTheme.gold, fontSize: 13)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   // Lien inscription
                   _buildRegisterLink(),
                 ],
@@ -183,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen>
                 style: const TextStyle(color: AppTheme.textPrimary),
                 decoration: const InputDecoration(
                   labelText: 'Numéro de téléphone',
-                  hintText: '+33 6 00 00 00 00',
+                  hintText: '+226 70 00 00 00',
                   prefixIcon:
                       Icon(Icons.phone_rounded, color: AppTheme.gold),
                 ),

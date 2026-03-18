@@ -13,21 +13,22 @@ class ComptesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer2<AssetProvider, AuthProvider>(
       builder: (context, prov, auth, _) {
-        final devise = auth.user?.devise ?? 'EUR';
+        final devise = auth.user?.devise ?? 'XOF';
         final comptes = prov.comptes;
         final total = prov.totalComptesBancaires;
+        final visible = auth.balancesVisible;
 
         return SafeArea(
           child: Column(
             children: [
-              _buildHeader(context, total, devise),
+              _buildHeader(context, total, devise, visible),
               Expanded(
                 child: comptes.isEmpty
                     ? _buildEmpty(context)
                     : ListView.builder(
                         padding: const EdgeInsets.all(16),
                         itemCount: comptes.length,
-                        itemBuilder: (_, i) => _buildCompteTile(context, comptes[i], devise, prov),
+                        itemBuilder: (_, i) => _buildCompteTile(context, comptes[i], devise, prov, visible),
                       ),
               ),
             ],
@@ -37,7 +38,7 @@ class ComptesScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, double total, String devise) {
+  Widget _buildHeader(BuildContext context, double total, String devise, bool visible) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       color: AppTheme.navyMedium,
@@ -46,8 +47,10 @@ class ComptesScreen extends StatelessWidget {
         children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Comptes Bancaires', style: TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.bold)),
-            Text('Solde total : ${AppUtils.formatMontant(total, devise: devise)}',
-                style: const TextStyle(color: AppTheme.success, fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(
+              'Solde total : ${visible ? AppUtils.formatMontant(total, devise: devise) : '••••••'}',
+              style: const TextStyle(color: AppTheme.success, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
           ]),
           ElevatedButton.icon(
             onPressed: () => _showAddCompteDialog(context),
@@ -60,7 +63,7 @@ class ComptesScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCompteTile(BuildContext context, CompteBancaire c, String devise, AssetProvider prov) {
+  Widget _buildCompteTile(BuildContext context, CompteBancaire c, String devise, AssetProvider prov, bool visible) {
     final typeIcon = _getTypeIcon(c.typeCompte);
     final typeColor = _getTypeColor(c.typeCompte);
     return Container(
@@ -98,10 +101,12 @@ class ComptesScreen extends StatelessWidget {
             ]),
           ),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(AppUtils.formatMontant(c.solde, devise: devise),
-                style: TextStyle(
-                    color: c.solde >= 0 ? AppTheme.textPrimary : AppTheme.danger,
-                    fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              visible ? AppUtils.formatMontant(c.solde, devise: devise) : '••••••',
+              style: TextStyle(
+                  color: !visible ? AppTheme.textMuted : (c.solde >= 0 ? AppTheme.textPrimary : AppTheme.danger),
+                  fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 4),
             Row(mainAxisSize: MainAxisSize.min, children: [
               IconButton(

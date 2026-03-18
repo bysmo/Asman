@@ -8,6 +8,8 @@ import '../models/asset_model.dart';
 import 'add_asset_screen.dart';
 import 'evaluation_screen.dart';
 import 'loyers_screen.dart';
+import 'certification_screen.dart';
+import 'marketplace_screen.dart';
 
 class AssetDetailScreen extends StatelessWidget {
   final Asset asset;
@@ -114,6 +116,27 @@ class AssetDetailScreen extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(a.pays, style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                            const SizedBox(width: 8),
+                            if (a.certificationStatus == CertificationStatus.certifie)
+                               Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: AppTheme.success.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                                  Icon(Icons.verified_rounded, color: AppTheme.success, size: 10),
+                                  SizedBox(width: 4),
+                                  Text('CERTIFIÉ', style: TextStyle(color: AppTheme.success, fontSize: 9, fontWeight: FontWeight.bold)),
+                                ]),
+                              )
+                            else if (a.certificationStatus == CertificationStatus.enAttente || a.certificationStatus == CertificationStatus.enCours)
+                               Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: AppTheme.warning.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                  const Icon(Icons.hourglass_empty_rounded, color: AppTheme.warning, size: 10),
+                                  const SizedBox(width: 4),
+                                  Text(a.certificationStatus == CertificationStatus.enAttente ? 'EN ATTENTE' : 'EN COURS', style: const TextStyle(color: AppTheme.warning, fontSize: 9, fontWeight: FontWeight.bold)),
+                                ]),
+                              ),
                           ],
                         ),
                       ],
@@ -267,21 +290,39 @@ class AssetDetailScreen extends StatelessWidget {
           _infoRow(Icons.public_rounded, 'Pays', a.pays),
           _infoRow(Icons.monetization_on_rounded, 'Devise', a.devise),
           _infoRow(Icons.calendar_month_rounded, 'Acquisition', AppUtils.formatDate(a.dateAcquisition)),
+          
+          if (a.type == AssetType.immobilier) ...[
+            if (a.details['superficie']?.isNotEmpty == true) _infoRow(Icons.square_foot_rounded, 'Superficie', '${a.details['superficie']} m²'),
+            if (a.details['gps']?.isNotEmpty == true) _infoRow(Icons.pin_drop_rounded, 'GPS', a.details['gps']),
+            if (a.details['caracteristiques']?.isNotEmpty == true) _infoRow(Icons.list_alt_rounded, 'Caractéristiques', a.details['caracteristiques']),
+            if (a.details['verrouillageGps'] == true) _infoRow(Icons.lock_rounded, 'Position', 'Verrouillée (Occupé)', color: AppTheme.warning),
+          ] else if (a.type == AssetType.vehicule) ...[
+            if (a.details['marque']?.isNotEmpty == true) _infoRow(Icons.directions_car_rounded, 'Marque', a.details['marque']),
+            if (a.details['modele']?.isNotEmpty == true) _infoRow(Icons.settings_rounded, 'Modèle', a.details['modele']),
+            if (a.details['annee']?.isNotEmpty == true) _infoRow(Icons.calendar_month_rounded, 'Année', a.details['annee']),
+            if (a.details['couleur']?.isNotEmpty == true) _infoRow(Icons.color_lens_rounded, 'Couleur', a.details['couleur']),
+            if (a.details['puissance']?.isNotEmpty == true) _infoRow(Icons.flash_on_rounded, 'Puissance', '${a.details['puissance']} CV'),
+          ] else if (a.type == AssetType.creance || a.type == AssetType.dette) ...[
+            if (a.details['temoin']?.isNotEmpty == true) _infoRow(Icons.person_search_rounded, 'Témoin', a.details['temoin']),
+            if (a.details['dateEcheance'] != null) _infoRow(Icons.event_rounded, 'Échéance', AppUtils.formatDate(DateTime.parse(a.details['dateEcheance']))),
+          ],
+
           if (a.description.isNotEmpty) _infoRow(Icons.notes_rounded, 'Notes', a.description),
         ],
       ),
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String value) {
+  Widget _infoRow(IconData icon, String label, String value, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: AppTheme.textMuted, size: 16),
           const SizedBox(width: 10),
           Text('$label : ', style: const TextStyle(color: AppTheme.textMuted, fontSize: 13)),
-          Expanded(child: Text(value, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500))),
+          Expanded(child: Text(value, style: TextStyle(color: color ?? AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500))),
         ],
       ),
     );
@@ -301,6 +342,31 @@ class AssetDetailScreen extends StatelessWidget {
             () => Navigator.push(context, MaterialPageRoute(builder: (_) => EvaluationScreen(asset: a))),
           )),
         ]),
+        
+        if (a.certificationStatus == CertificationStatus.nonDemande) ...[
+          const SizedBox(height: 12),
+          _actionBtn(
+            context, Icons.verified_outlined, 'Demander certification', AppTheme.gold,
+            () => CertificationScreen.showDemandeCertif(context, assetProv, preselectedAsset: a),
+            fullWidth: true,
+          ),
+        ],
+
+        if (a.certificationStatus == CertificationStatus.certifie) ...[
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: _actionBtn(
+              context, Icons.sell_rounded, 'Vendre', AppTheme.colorInvestissement,
+              () => MarketplaceScreen.showPublierListing(context, assetProv, context.read<AuthProvider>(), preselectedAsset: a),
+            )),
+            const SizedBox(width: 12),
+            Expanded(child: _actionBtn(
+              context, Icons.vpn_key_rounded, 'Louer', AppTheme.colorImmobilier,
+              () => MarketplaceScreen.showPublierListing(context, assetProv, context.read<AuthProvider>(), preselectedAsset: a),
+            )),
+          ]),
+        ],
+
         if (a.estLoue) ...[
           const SizedBox(height: 12),
           _actionBtn(
