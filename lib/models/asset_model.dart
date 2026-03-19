@@ -6,6 +6,10 @@ enum AssetType {
   dette,
   compteBancaire,
   autre,
+  objetsLuxe,
+  cheptelAnimal,
+  droitsAuteur,
+  marquesBrevets,
 }
 
 enum AssetStatus {

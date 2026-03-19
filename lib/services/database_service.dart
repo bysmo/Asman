@@ -98,6 +98,14 @@ class DatabaseService {
         docsRequise = ['Contrat de prêt / Reconnaissance de dette', 'Copie de la pièce d\'identité du débiteur/créancier'];
       } else if (type == AssetType.compteBancaire) {
         docsRequise = ['Relevé d\'identité bancaire (RIB)', 'Attestation de solde'];
+      } else if (type == AssetType.objetsLuxe) {
+        docsRequise = ['Certificat d\'authenticité', 'Facture d\'achat'];
+      } else if (type == AssetType.cheptelAnimal) {
+        docsRequise = ['Certificat de propriété', 'Carnet de vaccination'];
+      } else if (type == AssetType.droitsAuteur) {
+        docsRequise = ['Certificat d\'enregistrement', 'Preuve de création'];
+      } else if (type == AssetType.marquesBrevets) {
+        docsRequise = ['Certificat de dépôt', 'Titre de propriété industrielle'];
       }
 
       for (var doc in docsRequise) {

@@ -27,10 +27,18 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
 
   // Spécificités
   late TextEditingController _gpsC, _superficieC, _caractC; // Immobilier
+  List<Map<String, double>> _coordonneesTopographiques = [];
   late TextEditingController _marqueC, _modeleC, _anneeC, _couleurC, _puissanceC, _chassisC, _immatC; // Véhicule
   late TextEditingController _ibanC, _compteNomC; // Compte / Banque
   late TextEditingController _siretC; // Entreprise
   late TextEditingController _temoinC, _refContratC; // Dette/Créance
+  
+  // Nouveaux types
+  late TextEditingController _marqueLuxeC, _matiereC, _epoqueC; // Objets Luxe
+  late TextEditingController _typeAnimalC, _nombreTetesC; // Cheptel
+  late TextEditingController _typeOeuvreC, _numEnregistrementC; // Droits Auteur
+  late TextEditingController _numeroDepotC, _paysEnregistrementC; // Marques Brevets
+
   DateTime? _dateEcheance;
   bool _verrouillerGps = false;
 
@@ -62,6 +70,13 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
       _superficieC = TextEditingController(text: a.details['superficie'] ?? '');
       _caractC = TextEditingController(text: a.details['caracteristiques'] ?? '');
       _verrouillerGps = a.details['verrouillageGps'] ?? false;
+      if (a.details['coordonneesTopographiques'] != null) {
+        try {
+          _coordonneesTopographiques = List<Map<String, dynamic>>.from(a.details['coordonneesTopographiques'])
+              .map((e) => {'lat': (e['lat'] as num).toDouble(), 'lng': (e['lng'] as num).toDouble()})
+              .toList();
+        } catch (_) {}
+      }
       
       _marqueC = TextEditingController(text: a.details['marque'] ?? '');
       _modeleC = TextEditingController(text: a.details['modele'] ?? '');
@@ -79,6 +94,19 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
       _temoinC = TextEditingController(text: a.details['temoin'] ?? '');
       _refContratC = TextEditingController(text: a.details['reference_contrat'] ?? '');
       _dateEcheance = a.details['dateEcheance'] != null ? DateTime.tryParse(a.details['dateEcheance']) : null;
+
+      _marqueLuxeC = TextEditingController(text: a.details['marqueLuxe'] ?? '');
+      _matiereC = TextEditingController(text: a.details['matiere'] ?? '');
+      _epoqueC = TextEditingController(text: a.details['epoque'] ?? '');
+
+      _typeAnimalC = TextEditingController(text: a.details['typeAnimal'] ?? '');
+      _nombreTetesC = TextEditingController(text: a.details['nombreTetes'] ?? '');
+
+      _typeOeuvreC = TextEditingController(text: a.details['typeOeuvre'] ?? '');
+      _numEnregistrementC = TextEditingController(text: a.details['numEnregistrement'] ?? '');
+
+      _numeroDepotC = TextEditingController(text: a.details['numeroDepot'] ?? '');
+      _paysEnregistrementC = TextEditingController(text: a.details['paysEnregistrement'] ?? '');
     } else {
       _gpsC = TextEditingController(); _superficieC = TextEditingController(); _caractC = TextEditingController();
       _marqueC = TextEditingController(); _modeleC = TextEditingController(); _anneeC = TextEditingController();
@@ -86,6 +114,10 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
       _ibanC = TextEditingController(); _compteNomC = TextEditingController();
       _siretC = TextEditingController();
       _temoinC = TextEditingController(); _refContratC = TextEditingController();
+      _marqueLuxeC = TextEditingController(); _matiereC = TextEditingController(); _epoqueC = TextEditingController();
+      _typeAnimalC = TextEditingController(); _nombreTetesC = TextEditingController();
+      _typeOeuvreC = TextEditingController(); _numEnregistrementC = TextEditingController();
+      _numeroDepotC = TextEditingController(); _paysEnregistrementC = TextEditingController();
       final userDevise = Provider.of<AuthProvider>(context, listen: false).user?.devise ?? 'EUR';
       final userPays = Provider.of<AuthProvider>(context, listen: false).user?.pays ?? 'France';
       _devise = userDevise;
@@ -103,6 +135,10 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
     _ibanC.dispose(); _compteNomC.dispose();
     _siretC.dispose();
     _temoinC.dispose(); _refContratC.dispose();
+    _marqueLuxeC.dispose(); _matiereC.dispose(); _epoqueC.dispose();
+    _typeAnimalC.dispose(); _nombreTetesC.dispose();
+    _typeOeuvreC.dispose(); _numEnregistrementC.dispose();
+    _numeroDepotC.dispose(); _paysEnregistrementC.dispose();
     super.dispose();
   }
 
@@ -143,6 +179,7 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
       details['verrouillageGps'] = _verrouillerGps;
       details['superficie'] = _superficieC.text.trim();
       details['caracteristiques'] = _caractC.text.trim();
+      details['coordonneesTopographiques'] = _coordonneesTopographiques;
     } else if (_type == AssetType.vehicule) {
       details['marque'] = _marqueC.text.trim();
       details['modele'] = _modeleC.text.trim();
@@ -160,6 +197,19 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
       details['temoin'] = _temoinC.text.trim();
       details['reference_contrat'] = _refContratC.text.trim();
       if (_dateEcheance != null) details['dateEcheance'] = _dateEcheance!.toIso8601String();
+    } else if (_type == AssetType.objetsLuxe) {
+      details['marqueLuxe'] = _marqueLuxeC.text.trim();
+      details['matiere'] = _matiereC.text.trim();
+      details['epoque'] = _epoqueC.text.trim();
+    } else if (_type == AssetType.cheptelAnimal) {
+      details['typeAnimal'] = _typeAnimalC.text.trim();
+      details['nombreTetes'] = _nombreTetesC.text.trim();
+    } else if (_type == AssetType.droitsAuteur) {
+      details['typeOeuvre'] = _typeOeuvreC.text.trim();
+      details['numEnregistrement'] = _numEnregistrementC.text.trim();
+    } else if (_type == AssetType.marquesBrevets) {
+      details['numeroDepot'] = _numeroDepotC.text.trim();
+      details['paysEnregistrement'] = _paysEnregistrementC.text.trim();
     }
 
     // ─── VALIDATION UNICITÉ ───
@@ -263,7 +313,7 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
                 const SizedBox(height: 12),
                 _buildDateButton('acquisition'),
                 const SizedBox(height: 20),
-                if (_type == AssetType.immobilier || _type == AssetType.vehicule || _type == AssetType.creance || _type == AssetType.dette) ...[
+                if (_type != AssetType.autre) ...[
                   _sectionTitle('Spécificités'),
                   const SizedBox(height: 12),
                   _buildSpecificFields(),
@@ -440,13 +490,49 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
     );
   }
 
+  void _showAddTopographicPointDialog() {
+    final latC = TextEditingController();
+    final lngC = TextEditingController();
+    showDialog(context: context, builder: (ctx) {
+      return AlertDialog(
+        backgroundColor: AppTheme.navyMedium,
+        title: const Text('Nouveau point topographique', style: TextStyle(color: AppTheme.textPrimary, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _field(latC, 'Latitude', Icons.explore_rounded, type: const TextInputType.numberWithOptions(decimal: true, signed: true)),
+            const SizedBox(height: 12),
+            _field(lngC, 'Longitude', Icons.explore_rounded, type: const TextInputType.numberWithOptions(decimal: true, signed: true)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler', style: TextStyle(color: AppTheme.textMuted))),
+          ElevatedButton(
+            onPressed: () {
+              final lat = double.tryParse(latC.text.replaceAll(',', '.'));
+              final lng = double.tryParse(lngC.text.replaceAll(',', '.'));
+              if (lat != null && lng != null) {
+                setState(() {
+                  _coordonneesTopographiques.add({'lat': lat, 'lng': lng});
+                });
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Ajouter'),
+          ),
+        ],
+      );
+    });
+  }
+
   Widget _buildSpecificFields() {
     if (_type == AssetType.immobilier) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _field(_superficieC, 'Superficie (m²)', Icons.square_foot_rounded, type: TextInputType.number),
           const SizedBox(height: 12),
-          _field(_gpsC, 'Coordonnées GPS', Icons.pin_drop_rounded, hint: 'ex: 12.3456, -1.2345'),
+          _field(_gpsC, 'Adresse principale ou point simple', Icons.pin_drop_rounded, hint: 'ex: 12.3456, -1.2345'),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -458,6 +544,37 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
           ),
           const SizedBox(height: 12),
           _field(_caractC, 'Caractéristiques (ex: 4 pièces, piscine...)', Icons.list_alt_rounded, maxLines: 2),
+          const SizedBox(height: 16),
+          const Text('Topographie géographique (Dessin / Polygone)', style: TextStyle(color: AppTheme.textMuted, fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          if (_coordonneesTopographiques.isEmpty)
+            const Text('Aucun point topographique défini.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+          ..._coordonneesTopographiques.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final pt = entry.value;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: AppTheme.navyCard, borderRadius: BorderRadius.circular(8)),
+              child: Row(
+                children: [
+                  Text('Pt ${idx + 1}', style: const TextStyle(color: AppTheme.gold, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Lat: ${pt['lat']}, Lng: ${pt['lng']}', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13))),
+                  GestureDetector(
+                    onTap: () => setState(() => _coordonneesTopographiques.removeAt(idx)),
+                    child: const Icon(Icons.delete_outline_rounded, color: AppTheme.error, size: 18),
+                  )
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: _showAddTopographicPointDialog,
+            icon: const Icon(Icons.add_location_alt_rounded, color: AppTheme.gold, size: 16),
+            label: const Text('Ajouter un point topographique', style: TextStyle(color: AppTheme.gold)),
+          ),
         ],
       );
     } else if (_type == AssetType.vehicule) {
@@ -508,6 +625,48 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
           _buildDateButton('echeance'),
         ],
       );
+    } else if (_type == AssetType.objetsLuxe) {
+      return Column(
+        children: [
+          Row(children: [
+            Expanded(child: _field(_marqueLuxeC, 'Marque / Créateur', Icons.branding_watermark_rounded)),
+            const SizedBox(width: 12),
+            Expanded(child: _field(_matiereC, 'Matière', Icons.category_rounded)),
+          ]),
+          const SizedBox(height: 12),
+          _field(_epoqueC, 'Année / Époque / Modèle', Icons.history_rounded),
+        ],
+      );
+    } else if (_type == AssetType.cheptelAnimal) {
+       return Column(
+        children: [
+          Row(children: [
+            Expanded(child: _field(_typeAnimalC, 'Type d\'animal (ex: Bovin)', Icons.pets_rounded)),
+            const SizedBox(width: 12),
+            Expanded(child: _field(_nombreTetesC, 'Nombre de têtes', Icons.numbers_rounded, type: TextInputType.number)),
+          ]),
+        ],
+      );
+    } else if (_type == AssetType.droitsAuteur) {
+       return Column(
+        children: [
+          Row(children: [
+            Expanded(child: _field(_typeOeuvreC, 'Type d\'œuvre', Icons.movie_rounded)),
+            const SizedBox(width: 12),
+            Expanded(child: _field(_numEnregistrementC, 'N° d\'enregistrement', Icons.confirmation_number_rounded)),
+          ]),
+        ],
+      );
+    } else if (_type == AssetType.marquesBrevets) {
+       return Column(
+        children: [
+          Row(children: [
+            Expanded(child: _field(_numeroDepotC, 'Numéro de dépôt', Icons.badge_rounded)),
+            const SizedBox(width: 12),
+            Expanded(child: _field(_paysEnregistrementC, 'Pays d\'enregistrement', Icons.public_rounded)),
+          ]),
+        ],
+      );
     }
     return const SizedBox();
   }
@@ -520,7 +679,11 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
       case AssetType.creance: return 'ex: Prêt à Jean Dupont';
       case AssetType.dette: return 'ex: Crédit immobilier, Prêt personnel';
       case AssetType.compteBancaire: return 'ex: Compte courant, Livret A';
-      case AssetType.autre: return 'ex: Œuvre d\'art, Montre de luxe';
+      case AssetType.autre: return 'ex: Œuvre d\'art, Collection ancienne';
+      case AssetType.objetsLuxe: return 'ex: Montre Rolex, Bague en diamant';
+      case AssetType.cheptelAnimal: return 'ex: Troupeau de vaches, Élevage ovin';
+      case AssetType.droitsAuteur: return 'ex: Livre "Mon Histoire", Album musical';
+      case AssetType.marquesBrevets: return 'ex: Brevet d\'invention X, Marque Y';
     }
   }
 

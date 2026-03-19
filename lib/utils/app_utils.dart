@@ -51,6 +51,10 @@ class AppUtils {
       case AssetType.dette: return AppTheme.error;
       case AssetType.compteBancaire: return AppTheme.gold;
       case AssetType.autre: return AppTheme.colorAutre;
+      case AssetType.objetsLuxe: return Colors.purple;
+      case AssetType.cheptelAnimal: return Colors.brown;
+      case AssetType.droitsAuteur: return Colors.teal;
+      case AssetType.marquesBrevets: return Colors.indigo;
     }
   }
 
@@ -63,6 +67,10 @@ class AppUtils {
       case AssetType.dette: return Icons.money_off_rounded;
       case AssetType.compteBancaire: return Icons.account_balance_rounded;
       case AssetType.autre: return Icons.category_rounded;
+      case AssetType.objetsLuxe: return Icons.diamond_rounded;
+      case AssetType.cheptelAnimal: return Icons.pets_rounded;
+      case AssetType.droitsAuteur: return Icons.copyright_rounded;
+      case AssetType.marquesBrevets: return Icons.gavel_rounded;
     }
   }
 
@@ -75,6 +83,10 @@ class AppUtils {
       case AssetType.dette: return 'Dette';
       case AssetType.compteBancaire: return 'Compte Bancaire';
       case AssetType.autre: return 'Autre';
+      case AssetType.objetsLuxe: return 'Objets de luxe';
+      case AssetType.cheptelAnimal: return 'Cheptel animal';
+      case AssetType.droitsAuteur: return 'Droits d\'auteur';
+      case AssetType.marquesBrevets: return 'Marques et brevets';
     }
   }
 

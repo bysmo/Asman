@@ -296,6 +296,24 @@ class AssetDetailScreen extends StatelessWidget {
             if (a.details['gps']?.isNotEmpty == true) _infoRow(Icons.pin_drop_rounded, 'GPS', a.details['gps']),
             if (a.details['caracteristiques']?.isNotEmpty == true) _infoRow(Icons.list_alt_rounded, 'Caractéristiques', a.details['caracteristiques']),
             if (a.details['verrouillageGps'] == true) _infoRow(Icons.lock_rounded, 'Position', 'Verrouillée (Occupé)', color: AppTheme.warning),
+            if (a.details['coordonneesTopographiques'] != null && (a.details['coordonneesTopographiques'] as List).isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Row(
+                children: [
+                   Icon(Icons.map_rounded, color: AppTheme.textMuted, size: 16),
+                   SizedBox(width: 10),
+                   Text('Points topographiques :', style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ...(a.details['coordonneesTopographiques'] as List).asMap().entries.map((e) => 
+                Padding(
+                  padding: const EdgeInsets.only(left: 26, bottom: 4), 
+                  child: Text('Pt ${e.key + 1}: Lat ${e.value["lat"]}, Lng ${e.value["lng"]}', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500))
+                )
+              ),
+              const SizedBox(height: 4),
+            ]
           ] else if (a.type == AssetType.vehicule) ...[
             if (a.details['marque']?.isNotEmpty == true) _infoRow(Icons.directions_car_rounded, 'Marque', a.details['marque']),
             if (a.details['modele']?.isNotEmpty == true) _infoRow(Icons.settings_rounded, 'Modèle', a.details['modele']),
@@ -305,6 +323,19 @@ class AssetDetailScreen extends StatelessWidget {
           ] else if (a.type == AssetType.creance || a.type == AssetType.dette) ...[
             if (a.details['temoin']?.isNotEmpty == true) _infoRow(Icons.person_search_rounded, 'Témoin', a.details['temoin']),
             if (a.details['dateEcheance'] != null) _infoRow(Icons.event_rounded, 'Échéance', AppUtils.formatDate(DateTime.parse(a.details['dateEcheance']))),
+          ] else if (a.type == AssetType.objetsLuxe) ...[
+            if (a.details['marqueLuxe']?.isNotEmpty == true) _infoRow(Icons.branding_watermark_rounded, 'Marque', a.details['marqueLuxe']),
+            if (a.details['matiere']?.isNotEmpty == true) _infoRow(Icons.category_rounded, 'Matière', a.details['matiere']),
+            if (a.details['epoque']?.isNotEmpty == true) _infoRow(Icons.history_rounded, 'Époque', a.details['epoque']),
+          ] else if (a.type == AssetType.cheptelAnimal) ...[
+            if (a.details['typeAnimal']?.isNotEmpty == true) _infoRow(Icons.pets_rounded, 'Animal', a.details['typeAnimal']),
+            if (a.details['nombreTetes']?.isNotEmpty == true) _infoRow(Icons.numbers_rounded, 'Têtes', a.details['nombreTetes']),
+          ] else if (a.type == AssetType.droitsAuteur) ...[
+            if (a.details['typeOeuvre']?.isNotEmpty == true) _infoRow(Icons.movie_rounded, 'Œuvre', a.details['typeOeuvre']),
+            if (a.details['numEnregistrement']?.isNotEmpty == true) _infoRow(Icons.confirmation_number_rounded, 'Enregistrement', a.details['numEnregistrement']),
+          ] else if (a.type == AssetType.marquesBrevets) ...[
+            if (a.details['numeroDepot']?.isNotEmpty == true) _infoRow(Icons.badge_rounded, 'Dépôt', a.details['numeroDepot']),
+            if (a.details['paysEnregistrement']?.isNotEmpty == true) _infoRow(Icons.public_rounded, 'Pays', a.details['paysEnregistrement']),
           ],
 
           if (a.description.isNotEmpty) _infoRow(Icons.notes_rounded, 'Notes', a.description),

@@ -410,17 +410,7 @@ class _CertificationsTab extends StatelessWidget {
     }
   }
 
-  String _typeLabel(AssetType t) {
-    switch (t) {
-      case AssetType.immobilier: return 'Immobilier';
-      case AssetType.vehicule: return 'Véhicule';
-      case AssetType.investissement: return 'Investissement';
-      case AssetType.creance: return 'Créance';
-      case AssetType.dette: return 'Dette';
-      case AssetType.compteBancaire: return 'Compte Bancaire';
-      case AssetType.autre: return 'Autre';
-    }
-  }
+
 
   Widget _certCard(BuildContext context, CertificationDemande cert, AssetProvider assets) {
     final color = _certColor(cert.statut);
@@ -452,7 +442,7 @@ class _CertificationsTab extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _infoRow(Icons.category_rounded, _typeLabel(cert.assetType)),
+          _infoRow(Icons.category_rounded, AppUtils.getLabelForType(cert.assetType)),
           _infoRow(Icons.gavel_rounded, '${cert.autoriteType.toUpperCase()} · ${cert.autoriteNom.isNotEmpty ? cert.autoriteNom : "Non assigné"}'),
           _infoRow(Icons.calendar_today_rounded, 'Demande : ${AppUtils.formatDate(cert.dateDemande)}'),
           if (cert.dateTraitement != null)
