@@ -4,6 +4,8 @@ import '../providers/auth_provider.dart';
 import '../providers/asset_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_utils.dart';
+import '../models/asset_model.dart';
+import 'kyc_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -78,6 +80,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   'Vérification par email requise',
                   () => Navigator.pushNamed(context, '/reset-pin'),
                 ),
+              ]),
+              const SizedBox(height: 16),
+              _buildSection('Vérification d\'identité', [
+                _buildKycStatusTile(user),
               ]),
               const SizedBox(height: 16),
               _buildSection('Données', [
@@ -341,6 +347,84 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildKycStatusTile(UserProfile? user) {
+    if (user == null) return const SizedBox.shrink();
+    
+    IconData icon;
+    String title;
+    String subtitle;
+    Color color;
+    VoidCallback? onTap;
+
+    switch (user.kycStatus) {
+      case KycStatus.valide:
+        icon = Icons.verified_user_rounded;
+        title = 'Identité vérifiée';
+        subtitle = 'Votre compte est certifié';
+        color = AppTheme.success;
+        onTap = null;
+        break;
+      case KycStatus.enAttente:
+        icon = Icons.hourglass_top_rounded;
+        title = 'Vérification en cours';
+        subtitle = 'Vos documents sont en cours d\'analyse';
+        color = AppTheme.warning;
+        onTap = null;
+        break;
+      case KycStatus.rejete:
+        icon = Icons.error_outline_rounded;
+        title = 'Vérification rejetée';
+        subtitle = 'Cliquez ici pour soumettre à nouveau';
+        color = AppTheme.danger;
+        onTap = () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycScreen()));
+        break;
+      default:
+        icon = Icons.admin_panel_settings_rounded;
+        title = 'Compléter la vérification (KYC)';
+        subtitle = 'Requis pour certifier ou vendre des actifs';
+        color = AppTheme.gold;
+        onTap = () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycScreen()));
+        break;
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap ?? () {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(title),
+            backgroundColor: color,
+          ));
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: TextStyle(color: onTap != null ? AppTheme.textPrimary : color, fontSize: 14, fontWeight: FontWeight.w500)),
+                    Text(subtitle, style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                  ],
+                ),
+              ),
+              if (onTap != null)
+                const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted, size: 18),
             ],
           ),
         ),

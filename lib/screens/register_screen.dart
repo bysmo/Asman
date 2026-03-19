@@ -20,8 +20,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _prenomC = TextEditingController();
   bool _obscurePwd = true;
   bool _obscureConfirm = true;
-  String _selectedPays = 'France';
-  String _selectedDevise = 'EUR';
+  String _selectedPays = 'Burkina Faso';
+  String _selectedDevise = 'XOF';
 
   @override
   void dispose() {
@@ -89,7 +89,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ]),
                     const SizedBox(height: 16),
                     _buildField(_telC, 'Numéro de téléphone', Icons.phone_rounded,
-                        hint: '+33 6 00 00 00 00', type: TextInputType.phone),
+                        hint: '+226 70102030', type: TextInputType.phone),
                     const SizedBox(height: 16),
                     const Text('Région & devise',
                         style: TextStyle(color: AppTheme.gold, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 1)),

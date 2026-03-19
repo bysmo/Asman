@@ -47,7 +47,19 @@ class DatabaseService {
         email_verifie INTEGER DEFAULT 0,
         pin_code TEXT,
         otp_code TEXT,
-        otp_expiry TEXT
+        otp_expiry TEXT,
+        kyc_status INTEGER DEFAULT 0,
+        date_naissance TEXT,
+        type_piece_identite TEXT,
+        numero_piece TEXT,
+        document_identite_recto TEXT,
+        document_identite_verso TEXT,
+        selfie TEXT,
+        fonction TEXT,
+        adresse_residence TEXT,
+        nationalite TEXT,
+        nom_complet_pere TEXT,
+        nom_complet_mere TEXT
       )
     ''');
 
@@ -431,6 +443,18 @@ class DatabaseService {
         dateCreation: DateTime.parse(map['date_creation']),
         emailVerifie: (map['email_verifie'] ?? 0) == 1,
         pinCode: map['pin_code'],
+        kycStatus: KycStatus.values[map['kyc_status'] ?? 0],
+        dateNaissance: map['date_naissance'] != null ? DateTime.parse(map['date_naissance']) : null,
+        typePieceIdentite: map['type_piece_identite'],
+        numeroPiece: map['numero_piece'],
+        documentIdentiteRecto: map['document_identite_recto'],
+        documentIdentiteVerso: map['document_identite_verso'],
+        selfie: map['selfie'],
+        fonction: map['fonction'],
+        adresseResidence: map['adresse_residence'],
+        nationalite: map['nationalite'],
+        nomCompletPere: map['nom_complet_pere'],
+        nomCompletMere: map['nom_complet_mere'],
       );
     }
     return null;
@@ -502,7 +526,37 @@ class DatabaseService {
       dateCreation: DateTime.parse(map['date_creation'] as String),
       emailVerifie: (map['email_verifie'] ?? 0) == 1,
       pinCode: map['pin_code'] as String?,
+      kycStatus: KycStatus.values[map['kyc_status'] as int? ?? 0],
+      dateNaissance: map['date_naissance'] != null ? DateTime.parse(map['date_naissance'] as String) : null,
+      typePieceIdentite: map['type_piece_identite'] as String?,
+      numeroPiece: map['numero_piece'] as String?,
+      documentIdentiteRecto: map['document_identite_recto'] as String?,
+      documentIdentiteVerso: map['document_identite_verso'] as String?,
+      selfie: map['selfie'] as String?,
+      fonction: map['fonction'] as String?,
+      adresseResidence: map['adresse_residence'] as String?,
+      nationalite: map['nationalite'] as String?,
+      nomCompletPere: map['nom_complet_pere'] as String?,
+      nomCompletMere: map['nom_complet_mere'] as String?,
     );
+  }
+
+  Future<void> submitKycData(String userId, Map<String, dynamic> kycData) async {
+    final db = await database;
+    await db.update('users', {
+      'kyc_status': kycData['kycStatus'],
+      'date_naissance': kycData['dateNaissance'],
+      'type_piece_identite': kycData['typePieceIdentite'],
+      'numero_piece': kycData['numeroPiece'],
+      'document_identite_recto': kycData['documentIdentiteRecto'],
+      'document_identite_verso': kycData['documentIdentiteVerso'],
+      'selfie': kycData['selfie'],
+      'fonction': kycData['fonction'],
+      'adresse_residence': kycData['adresseResidence'],
+      'nationalite': kycData['nationalite'],
+      'nom_complet_pere': kycData['nomCompletPere'],
+      'nom_complet_mere': kycData['nomCompletMere'],
+    }, where: 'id = ?', whereArgs: [userId]);
   }
 
   Future<void> updateProfile(String userId, {required String nom, required String prenom, required String pays, required String devise}) async {

@@ -202,6 +202,15 @@ class CertificationScreen extends StatelessWidget {
   }
 
   static Future<void> showDemandeCertif(BuildContext context, AssetProvider prov, {Asset? preselectedAsset}) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user?.kycStatus != KycStatus.valide) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Vous devez valider votre KYC pour demander une certification.'),
+        backgroundColor: AppTheme.danger,
+      ));
+      return;
+    }
+
     if (prov.assets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Ajoutez d\'abord un actif à certifier'), backgroundColor: AppTheme.warning));

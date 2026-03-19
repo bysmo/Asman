@@ -785,6 +785,13 @@ class Loyer {
 }
 
 // ─── USER PROFILE ─────────────────────────────────────────────────────────────
+enum KycStatus {
+  nonSoumis,
+  enAttente,
+  valide,
+  rejete,
+}
+
 class UserProfile {
   String id;
   String telephone;
@@ -796,6 +803,20 @@ class UserProfile {
   DateTime dateCreation;
   bool emailVerifie;
   String? pinCode; // SHA-256 hash du code PIN 4 chiffres
+  
+  // KYC Fields
+  KycStatus kycStatus;
+  DateTime? dateNaissance;
+  String? typePieceIdentite;
+  String? numeroPiece;
+  String? documentIdentiteRecto;
+  String? documentIdentiteVerso;
+  String? selfie;
+  String? fonction;
+  String? adresseResidence;
+  String? nationalite;
+  String? nomCompletPere;
+  String? nomCompletMere;
 
   UserProfile({
     required this.id, required this.telephone,
@@ -805,6 +826,18 @@ class UserProfile {
     required this.dateCreation,
     this.emailVerifie = false,
     this.pinCode,
+    this.kycStatus = KycStatus.nonSoumis,
+    this.dateNaissance,
+    this.typePieceIdentite,
+    this.numeroPiece,
+    this.documentIdentiteRecto,
+    this.documentIdentiteVerso,
+    this.selfie,
+    this.fonction,
+    this.adresseResidence,
+    this.nationalite,
+    this.nomCompletPere,
+    this.nomCompletMere,
   });
 
   String get nomComplet => '$prenom $nom'.trim();
@@ -817,6 +850,18 @@ class UserProfile {
         'dateCreation': dateCreation.toIso8601String(),
         'emailVerifie': emailVerifie,
         'pinCode': pinCode,
+        'kycStatus': kycStatus.index,
+        'dateNaissance': dateNaissance?.toIso8601String(),
+        'typePieceIdentite': typePieceIdentite,
+        'numeroPiece': numeroPiece,
+        'documentIdentiteRecto': documentIdentiteRecto,
+        'documentIdentiteVerso': documentIdentiteVerso,
+        'selfie': selfie,
+        'fonction': fonction,
+        'adresseResidence': adresseResidence,
+        'nationalite': nationalite,
+        'nomCompletPere': nomCompletPere,
+        'nomCompletMere': nomCompletMere,
       };
 
   factory UserProfile.fromMap(Map<String, dynamic> map) => UserProfile(
@@ -827,5 +872,17 @@ class UserProfile {
         dateCreation: DateTime.parse(map['dateCreation'] ?? DateTime.now().toIso8601String()),
         emailVerifie: (map['emailVerifie'] ?? false) == true || (map['emailVerifie'] ?? 0) == 1,
         pinCode: map['pinCode'],
+        kycStatus: KycStatus.values[map['kycStatus'] ?? 0],
+        dateNaissance: map['dateNaissance'] != null ? DateTime.parse(map['dateNaissance']) : null,
+        typePieceIdentite: map['typePieceIdentite'],
+        numeroPiece: map['numeroPiece'],
+        documentIdentiteRecto: map['documentIdentiteRecto'],
+        documentIdentiteVerso: map['documentIdentiteVerso'],
+        selfie: map['selfie'],
+        fonction: map['fonction'],
+        adresseResidence: map['adresseResidence'],
+        nationalite: map['nationalite'],
+        nomCompletPere: map['nomCompletPere'],
+        nomCompletMere: map['nomCompletMere'],
       );
 }

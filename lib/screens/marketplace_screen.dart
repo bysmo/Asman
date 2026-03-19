@@ -16,6 +16,15 @@ class MarketplaceScreen extends StatefulWidget {
       final ok = await PinDialog.show(context);
       if (!ok || !context.mounted) return;
     }
+    
+    // ─── Verification KYC
+    if (auth.user?.kycStatus != KycStatus.valide) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Vous devez valider votre KYC pour publier sur la marketplace.'),
+        backgroundColor: AppTheme.danger,
+      ));
+      return;
+    }
     final certifies = prov.assetsCertifies;
     if (certifies.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

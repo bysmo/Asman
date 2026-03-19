@@ -353,6 +353,57 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // ─── Submit KYC ────────────────────────────────────────────────────────────
+  Future<bool> submitKyc({
+    required DateTime dateNaissance,
+    required String typePieceIdentite,
+    required String numeroPiece,
+    required String documentIdentiteRecto,
+    required String documentIdentiteVerso,
+    required String selfie,
+    required String fonction,
+    required String adresseResidence,
+    required String nationalite,
+    required String nomCompletPere,
+    required String nomCompletMere,
+  }) async {
+    if (_user == null) return false;
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final kycData = {
+        'kycStatus': KycStatus.enAttente.index,
+        'dateNaissance': dateNaissance.toIso8601String(),
+        'typePieceIdentite': typePieceIdentite,
+        'numeroPiece': numeroPiece,
+        'documentIdentiteRecto': documentIdentiteRecto,
+        'documentIdentiteVerso': documentIdentiteVerso,
+        'selfie': selfie,
+        'fonction': fonction,
+        'adresseResidence': adresseResidence,
+        'nationalite': nationalite,
+        'nomCompletPere': nomCompletPere,
+        'nomCompletMere': nomCompletMere,
+      };
+
+      await DatabaseService().submitKycData(_user!.id, kycData);
+      
+      _user = await DatabaseService().getUserProfile(_user!.id);
+      await _storage.saveUserProfile(_user!);
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Erreur lors de la soumission du KYC: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   // ─── Logout ──────────────────────────────────────────────────────────────────
   Future<void> logout() async {
     await _storage.clearAuth();
