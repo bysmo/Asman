@@ -19,7 +19,7 @@ class _TestamentScreenState extends State<TestamentScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AssetProvider>().loadData();
     });
@@ -47,6 +47,7 @@ class _TestamentScreenState extends State<TestamentScreen> with SingleTickerProv
           tabs: const [
             Tab(icon: Icon(Icons.description_rounded), text: 'Testament'),
             Tab(icon: Icon(Icons.people_rounded), text: 'Ayants droits'),
+            Tab(icon: Icon(Icons.support_agent_rounded), text: 'Ressources'),
             Tab(icon: Icon(Icons.pie_chart_rounded), text: 'Répartition'),
           ],
         ),
@@ -60,6 +61,7 @@ class _TestamentScreenState extends State<TestamentScreen> with SingleTickerProv
             children: [
               _TestamentTab(testament: testament, userId: userId),
               _AyantsDroitsTab(testament: testament, userId: userId),
+              _PersonnesRessourcesTab(testament: testament, userId: userId),
               _RepartitionTab(testament: testament, assets: assets),
             ],
           );
@@ -885,7 +887,285 @@ class _AyantsDroitsTab extends StatelessWidget {
   }
 }
 
-// ─── TAB 3 : RÉPARTITION ─────────────────────────────────────────────────────
+// ─── TAB 3 : PERSONNES RESSOURCES ──────────────────────────────────────────────
+class _PersonnesRessourcesTab extends StatelessWidget {
+  final Testament? testament;
+  final String userId;
+  const _PersonnesRessourcesTab({this.testament, required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    final assets = context.watch<AssetProvider>();
+    final ressources = testament?.personnesRessources ?? [];
+
+    return Scaffold(
+      backgroundColor: AppTheme.navyDark,
+      body: ressources.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.support_agent_rounded, color: AppTheme.textMuted, size: 64),
+                  const SizedBox(height: 16),
+                  const Text('Aucune personne ressource', style: TextStyle(color: AppTheme.textSecondary, fontSize: 18)),
+                  const SizedBox(height: 8),
+                  const Text('Ajoutez des personnes de confiance (max 3)\npour témoigner en cas de succession.',
+                      style: TextStyle(color: AppTheme.textMuted), textAlign: TextAlign.center),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: ressources.length,
+              itemBuilder: (ctx, i) => _buildRessourceCard(ctx, ressources[i], assets),
+            ),
+      floatingActionButton: testament == null
+          ? FloatingActionButton.extended(
+              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Créez d\'abord un testament'), backgroundColor: AppTheme.error)),
+              backgroundColor: AppTheme.gold,
+              foregroundColor: AppTheme.navyDark,
+              icon: const Icon(Icons.person_add_rounded),
+              label: const Text('Ajouter', style: TextStyle(fontWeight: FontWeight.bold)),
+            )
+          : ressources.length >= 3
+              ? null
+              : FloatingActionButton.extended(
+                  onPressed: () => _showFormRessource(context, null, assets),
+                  backgroundColor: AppTheme.gold,
+                  foregroundColor: AppTheme.navyDark,
+                  icon: const Icon(Icons.person_add_rounded),
+                  label: const Text('Ajouter', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+    );
+  }
+
+  Widget _buildRessourceCard(BuildContext context, PersonneRessource pr, AssetProvider assets) {
+    const color = AppTheme.gold;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.navyCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.2),
+          child: Text(
+            pr.nomComplet.isNotEmpty ? pr.nomComplet[0].toUpperCase() : '?',
+            style: const TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
+        ),
+        title: Text(pr.nomComplet.isNotEmpty ? pr.nomComplet : 'Sans nom',
+            style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 2),
+            if (pr.qualite.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(pr.qualite, style: const TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+              ),
+            if (pr.telephone.isNotEmpty) Text('Tél: ${pr.telephone}', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+            if (pr.email.isNotEmpty) Text('Email: ${pr.email}', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+          ],
+        ),
+        trailing: PopupMenuButton<String>(
+          color: AppTheme.navyMedium,
+          icon: const Icon(Icons.more_vert_rounded, color: AppTheme.textMuted),
+          onSelected: (val) {
+            if (val == 'edit') _showFormRessource(context, pr, assets);
+            if (val == 'delete') _confirmerSuppression(context, pr, assets);
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: 'edit', child: Text('Modifier', style: TextStyle(color: AppTheme.textPrimary))),
+            const PopupMenuItem(value: 'delete', child: Text('Supprimer', style: TextStyle(color: AppTheme.error))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFormRessource(BuildContext context, PersonneRessource? existing, AssetProvider assets) {
+    final nomCtrl = TextEditingController(text: existing?.nom ?? '');
+    final prenomCtrl = TextEditingController(text: existing?.prenom ?? '');
+    final qualiteCtrl = TextEditingController(text: existing?.qualite ?? '');
+    final telCtrl = TextEditingController(text: existing?.telephone ?? '');
+    final emailCtrl = TextEditingController(text: existing?.email ?? '');
+    final notesCtrl = TextEditingController(text: existing?.notes ?? '');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.navyMedium,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 20, right: 20, top: 20),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(existing == null ? 'Ajouter une personne ressource' : 'Modifier',
+                  style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              TextField(
+                controller: prenomCtrl,
+                style: const TextStyle(color: AppTheme.textPrimary),
+                decoration: InputDecoration(
+                  labelText: 'Prénom',
+                  prefixIcon: const Icon(Icons.person_outline, color: AppTheme.textMuted, size: 20),
+                  labelStyle: const TextStyle(color: AppTheme.textMuted),
+                  filled: true, fillColor: AppTheme.navyCard,
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.navyLight)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.gold)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nomCtrl,
+                style: const TextStyle(color: AppTheme.textPrimary),
+                decoration: InputDecoration(
+                  labelText: 'Nom *',
+                  prefixIcon: const Icon(Icons.person_rounded, color: AppTheme.textMuted, size: 20),
+                  labelStyle: const TextStyle(color: AppTheme.textMuted),
+                  filled: true, fillColor: AppTheme.navyCard,
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.navyLight)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.gold)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: qualiteCtrl,
+                style: const TextStyle(color: AppTheme.textPrimary),
+                decoration: InputDecoration(
+                  labelText: 'Qualité (ex: Ami, Médecin, ...)',
+                  prefixIcon: const Icon(Icons.badge_rounded, color: AppTheme.textMuted, size: 20),
+                  labelStyle: const TextStyle(color: AppTheme.textMuted),
+                  filled: true, fillColor: AppTheme.navyCard,
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.navyLight)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.gold)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: telCtrl,
+                style: const TextStyle(color: AppTheme.textPrimary),
+                decoration: InputDecoration(
+                  labelText: 'Téléphone',
+                  prefixIcon: const Icon(Icons.phone_rounded, color: AppTheme.textMuted, size: 20),
+                  labelStyle: const TextStyle(color: AppTheme.textMuted),
+                  filled: true, fillColor: AppTheme.navyCard,
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.navyLight)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.gold)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailCtrl,
+                style: const TextStyle(color: AppTheme.textPrimary),
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: const Icon(Icons.email_rounded, color: AppTheme.textMuted, size: 20),
+                  labelStyle: const TextStyle(color: AppTheme.textMuted),
+                  filled: true, fillColor: AppTheme.navyCard,
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.navyLight)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.gold)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (nomCtrl.text.trim().isEmpty) return;
+                    final pr = PersonneRessource(
+                      id: existing?.id ?? assets.generateId(),
+                      nom: nomCtrl.text.trim(),
+                      prenom: prenomCtrl.text.trim(),
+                      qualite: qualiteCtrl.text.trim(),
+                      telephone: telCtrl.text.trim(),
+                      email: emailCtrl.text.trim(),
+                      notes: notesCtrl.text.trim(),
+                    );
+                    final t = testament!;
+                    List<PersonneRessource> newList;
+                    if (existing != null) {
+                      newList = t.personnesRessources.map((x) => x.id == existing.id ? pr : x).toList();
+                    } else {
+                      newList = [...t.personnesRessources, pr];
+                    }
+                    assets.saveTestament(Testament(
+                      id: t.id, userId: t.userId, statut: t.statut,
+                      notes: t.notes, dateCreation: t.dateCreation,
+                      dateModification: DateTime.now(),
+                      dateCertification: t.dateCertification,
+                      notaireNom: t.notaireNom, notaireContact: t.notaireContact,
+                      certificationRef: t.certificationRef,
+                      ayantsDroits: t.ayantsDroits, repartitions: t.repartitions,
+                      personnesRessources: newList, // Update that
+                      paiementCertifEffectue: t.paiementCertifEffectue,
+                    ));
+                    Navigator.pop(ctx);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.gold, foregroundColor: AppTheme.navyDark,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(existing == null ? 'Ajouter' : 'Enregistrer',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmerSuppression(BuildContext context, PersonneRessource pr, AssetProvider assets) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.navyMedium,
+        title: const Text('Supprimer', style: TextStyle(color: AppTheme.error)),
+        content: Text('Supprimer ${pr.nomComplet} des personnes ressources ?', style: const TextStyle(color: AppTheme.textSecondary)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler', style: TextStyle(color: AppTheme.textMuted))),
+          ElevatedButton(
+            onPressed: () {
+              final t = testament!;
+              final newList = t.personnesRessources.where((x) => x.id != pr.id).toList();
+              assets.saveTestament(Testament(
+                id: t.id, userId: t.userId, statut: t.statut,
+                notes: t.notes, dateCreation: t.dateCreation,
+                dateModification: DateTime.now(),
+                notaireNom: t.notaireNom, notaireContact: t.notaireContact,
+                certificationRef: t.certificationRef,
+                ayantsDroits: t.ayantsDroits, repartitions: t.repartitions,
+                personnesRessources: newList, // Update that
+                paiementCertifEffectue: t.paiementCertifEffectue,
+              ));
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── TAB 4 : RÉPARTITION ─────────────────────────────────────────────────────
 class _RepartitionTab extends StatelessWidget {
   final Testament? testament;
   final AssetProvider assets;

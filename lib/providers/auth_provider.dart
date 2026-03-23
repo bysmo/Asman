@@ -130,6 +130,20 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // ─── Resend Registration OTP (for Simulation/Display) ──────────────────
+  Future<String?> resendRegistrationOtp() async {
+    if (_pendingUserId == null) return null;
+    try {
+      final otp = generateOtp();
+      await DatabaseService().setOtp(_pendingUserId!, otp);
+      return otp;
+    } catch (e) {
+      _error = 'Erreur lors du renvoi du code: $e';
+      notifyListeners();
+      return null;
+    }
+  }
+
   // ─── Register Step 2: Verify OTP ─────────────────────────────────────────────
   Future<bool> verifyRegistrationOtp(String otpCode) async {
     if (_pendingUserId == null) return false;
@@ -416,5 +430,85 @@ class AuthProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  // ─── Notaires Désignés ──────────────────────────────────────────────────────
+  Future<void> saveNotairesChoisis(List<String> notaireIds, String? executeurId) async {
+    if (_user == null) return;
+    await DatabaseService().saveNotairesChoisis(_user!.id, notaireIds, executeurId);
+    _user!.notairesChoisisIds = notaireIds;
+    _user!.notaireExecuteurId = executeurId;
+    notifyListeners();
+  }
+
+  // ─── Confirmation de Vie ────────────────────────────────────────────────────
+
+  /// Confirme que l'utilisateur est en vie via son code PIN.
+  /// Retourne true si succès, false si PIN incorrect ou utilisateur non connecté.
+  Future<bool> confirmerVie(String pin) async {
+    if (_user == null) return false;
+    if (pin.isNotEmpty) {
+      final pinHash = hashPin(pin);
+      final ok = await DatabaseService().verifyPin(_user!.id, pinHash);
+      if (!ok) return false;
+    }
+    final now = DateTime.now();
+    final prochainEnvoi = now.add(const Duration(days: 90)); // Prochain envoi dans 3 mois
+    await DatabaseService().updateStatutVie(
+      _user!.id,
+      statut: StatutVie.actif,
+      derniereConfirmation: now,
+      prochainEnvoi: prochainEnvoi,
+      nombreRelances: 0,
+    );
+    _user!.statutVie = StatutVie.actif;
+    _user!.derniereConfirmationVie = now;
+    _user!.prochainEnvoiConfirmation = prochainEnvoi;
+    _user!.nombreRelancesEnvoyees = 0;
+    notifyListeners();
+    return true;
+  }
+
+  /// Simule le changement de statut vital (pour les tests / démonstration).
+  Future<void> simulerStatutVie(StatutVie statut) async {
+    if (_user == null) return;
+    final relances = statut == StatutVie.relance ? 2 : 0;
+    await DatabaseService().updateStatutVie(
+      _user!.id,
+      statut: statut,
+      nombreRelances: relances,
+    );
+    _user!.statutVie = statut;
+    _user!.nombreRelancesEnvoyees = relances;
+    notifyListeners();
+  }
+
+  /// Déclenche la procédure de liquidation des actifs.
+  /// Dans une vraie app, appellera l'API backend qui enverra les emails/SMS.
+  Future<void> declencherLiquidation() async {
+    if (_user == null) return;
+    await DatabaseService().updateStatutVie(
+      _user!.id,
+      statut: StatutVie.presumeDecede,
+      nombreRelances: 4,
+    );
+    _user!.statutVie = StatutVie.presumeDecede;
+    _user!.nombreRelancesEnvoyees = 4;
+    notifyListeners();
+    // TODO: Appel API Backend → notification mail/SMS notaires + ayants-droits
+  }
+
+  /// Vérifie le statut de confirmation de vie à l'ouverture de l'app.
+  /// Appeler dans initState du HomeScreen ou au démarrage.
+  Future<void> checkConfirmationVie() async {
+    if (_user == null) return;
+    final now = DateTime.now();
+    final prochain = _user!.prochainEnvoiConfirmation;
+    if (prochain == null || now.isBefore(prochain)) return;
+
+    // Dépassé le prochain envoi : passer à "confirmation requise"
+    if (_user!.statutVie == StatutVie.actif) {
+      await simulerStatutVie(StatutVie.confirmationRequise);
+    }
   }
 }

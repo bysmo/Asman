@@ -6,6 +6,8 @@ import '../theme/app_theme.dart';
 import '../utils/app_utils.dart';
 import '../models/asset_model.dart';
 import 'kyc_screen.dart';
+import 'notaires_selection_screen.dart';
+import 'confirmation_vie_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -59,6 +61,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.all(20),
             children: [
               const SizedBox(height: 8),
+              // Bandeau vie si status non actif
+              if (user != null && user.statutVie != StatutVie.actif)
+                _buildVieBanner(context, user),
               _buildAvatar(user),
               const SizedBox(height: 20),
               // Email & PIN status
@@ -84,6 +89,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
               _buildSection('Vérification d\'identité', [
                 _buildKycStatusTile(user),
+              ]),
+              const SizedBox(height: 16),
+              _buildSection('Notaires & Réglement successoral', [
+                _buildNotairesTile(context, user),
+                _buildConfirmationVieTile(context, user),
               ]),
               const SizedBox(height: 16),
               _buildSection('Données', [
@@ -343,6 +353,122 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Text(title, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
                     if (subtitle.isNotEmpty) Text(subtitle, style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVieBanner(BuildContext context, UserProfile user) {
+    final isRelance = user.statutVie == StatutVie.relance || user.statutVie == StatutVie.presumeDecede;
+    final color = isRelance ? AppTheme.error : AppTheme.warning;
+    final label = switch (user.statutVie) {
+      StatutVie.confirmationRequise => '⚠️ Confirmation de vie requise',
+      StatutVie.relance => '🚨 Relances envoyées — Confirmez votre vie !',
+      StatutVie.presumeDecede => '🔴 Procédure de liquidation déclenchée',
+      _ => '',
+    };
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConfirmationVieScreen())),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.6)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.notification_important_rounded, color: color, size: 22),
+            const SizedBox(width: 12),
+            Expanded(child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13))),
+            Icon(Icons.chevron_right_rounded, color: color, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotairesTile(BuildContext context, UserProfile? user) {
+    final count = user?.notairesChoisisIds.length ?? 0;
+    final hasExecuteur = user?.notaireExecuteurId != null;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotairesSelectionScreen())),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: AppTheme.gold.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.gavel_rounded, color: AppTheme.gold, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Mes Notaires Désignés', style: TextStyle(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
+                    Text(
+                      count == 0 ? 'Aucun notaire sélectionné' : '$count notaire(s)${hasExecuteur ? ' · Exécuteur désigné ✓' : ''}',
+                      style: TextStyle(color: count == 0 ? AppTheme.textMuted : AppTheme.gold, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConfirmationVieTile(BuildContext context, UserProfile? user) {
+    final statut = user?.statutVie ?? StatutVie.actif;
+    final Color color = switch (statut) {
+      StatutVie.actif => AppTheme.success,
+      StatutVie.confirmationRequise => AppTheme.warning,
+      StatutVie.relance => AppTheme.error,
+      StatutVie.presumeDecede => Colors.red,
+    };
+    final String label = switch (statut) {
+      StatutVie.actif => 'Vie confirmée ✓',
+      StatutVie.confirmationRequise => 'Confirmation en attente',
+      StatutVie.relance => 'Relances en cours',
+      StatutVie.presumeDecede => 'Présumé décédé',
+    };
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConfirmationVieScreen())),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                child: Icon(Icons.favorite_rounded, color: color, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Confirmation de Vie', style: TextStyle(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
+                    Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),

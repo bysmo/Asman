@@ -59,7 +59,13 @@ class DatabaseService {
         adresse_residence TEXT,
         nationalite TEXT,
         nom_complet_pere TEXT,
-        nom_complet_mere TEXT
+        nom_complet_mere TEXT,
+        notaires_choisis_ids TEXT DEFAULT '',
+        notaire_executeur_id TEXT,
+        statut_vie INTEGER DEFAULT 0,
+        derniere_confirmation_vie TEXT,
+        prochain_envoi_confirmation TEXT,
+        nombre_relances_envoyees INTEGER DEFAULT 0
       )
     ''');
 
@@ -115,6 +121,40 @@ class DatabaseService {
           'est_obligatoire': 1,
         });
       }
+    }
+
+    // Table Notaires
+    await db.execute('''
+      CREATE TABLE notaires (
+        id TEXT PRIMARY KEY,
+        nom TEXT NOT NULL,
+        prenom TEXT,
+        ville TEXT,
+        pays TEXT,
+        telephone TEXT,
+        email TEXT,
+        specialite TEXT DEFAULT 'notaire',
+        est_disponible INTEGER DEFAULT 1
+      )
+    ''');
+
+    // Seed de notaires fictifs
+    final notairesSeed = [
+      {'id': 'n1', 'nom': 'SAWADOGO', 'prenom': 'Ismaël', 'ville': 'Ouagadougou', 'pays': 'Burkina Faso', 'telephone': '+226 70 00 01 01', 'email': 'sawadogo.ismael@notaires.bf', 'specialite': 'notaire', 'est_disponible': 1},
+      {'id': 'n2', 'nom': 'OUÉDRAOGO', 'prenom': 'Aminata', 'ville': 'Bobo-Dioulasso', 'pays': 'Burkina Faso', 'telephone': '+226 70 00 02 02', 'email': 'ouedraogo.a@notaires.bf', 'specialite': 'notaire', 'est_disponible': 1},
+      {'id': 'n3', 'nom': 'KABORÉ', 'prenom': 'Jean-Baptiste', 'ville': 'Koudougou', 'pays': 'Burkina Faso', 'telephone': '+226 70 00 03 03', 'email': 'kabore.jb@notaires.bf', 'specialite': 'notaire', 'est_disponible': 1},
+      {'id': 'n4', 'nom': 'DIALLO', 'prenom': 'Fatoumata', 'ville': 'Abidjan', 'pays': 'Côte d\'Ivoire', 'telephone': '+225 07 00 04 04', 'email': 'diallo.f@notaires.ci', 'specialite': 'notaire', 'est_disponible': 1},
+      {'id': 'n5', 'nom': 'KONÉ', 'prenom': 'Ibrahima', 'ville': 'Dakar', 'pays': 'Sénégal', 'telephone': '+221 77 00 05 05', 'email': 'kone.i@notaires.sn', 'specialite': 'notaire', 'est_disponible': 1},
+      {'id': 'n6', 'nom': 'BA', 'prenom': 'Cheikh', 'ville': 'Dakar', 'pays': 'Sénégal', 'telephone': '+221 78 00 06 06', 'email': 'ba.cheikh@notaires.sn', 'specialite': 'notaire', 'est_disponible': 1},
+      {'id': 'n7', 'nom': 'TOURÉ', 'prenom': 'Marie-Claire', 'ville': 'Lomé', 'pays': 'Togo', 'telephone': '+228 90 00 07 07', 'email': 'toure.mc@notaires.tg', 'specialite': 'notaire', 'est_disponible': 1},
+      {'id': 'n8', 'nom': 'MENSAH', 'prenom': 'Kodjo', 'ville': 'Lomé', 'pays': 'Togo', 'telephone': '+228 91 00 08 08', 'email': 'mensah.k@notaires.tg', 'specialite': 'notaire', 'est_disponible': 1},
+      {'id': 'n9', 'nom': 'AKAKPO', 'prenom': 'Ezéchiel', 'ville': 'Cotonou', 'pays': 'Bénin', 'telephone': '+229 95 00 09 09', 'email': 'akakpo.e@notaires.bj', 'specialite': 'notaire', 'est_disponible': 1},
+      {'id': 'n10', 'nom': 'MARTIN', 'prenom': 'Sophie', 'ville': 'Paris', 'pays': 'France', 'telephone': '+33 1 40 00 10 10', 'email': 's.martin@notaires-paris.fr', 'specialite': 'notaire', 'est_disponible': 1},
+      {'id': 'n11', 'nom': 'DUPONT', 'prenom': 'François', 'ville': 'Lyon', 'pays': 'France', 'telephone': '+33 4 72 00 11 11', 'email': 'f.dupont@notaires-lyon.fr', 'specialite': 'notaire', 'est_disponible': 1},
+      {'id': 'n12', 'nom': 'TRAORÉ', 'prenom': 'Moussa', 'ville': 'Bamako', 'pays': 'Mali', 'telephone': '+223 75 00 12 12', 'email': 'traore.m@notaires.ml', 'specialite': 'notaire', 'est_disponible': 1},
+    ];
+    for (final n in notairesSeed) {
+      await db.insert('notaires', n);
     }
 
     // 3. Table principale des actifs
@@ -399,6 +439,28 @@ class DatabaseService {
   }) async {
     final db = await database;
     try {
+      // Vérifier s'il existe déjà une inscription avec cet email ou ce téléphone
+      final existing = await db.query(
+        'users',
+        where: 'telephone = ? OR email = ?',
+        whereArgs: [telephone, email],
+      );
+
+      if (existing.isNotEmpty) {
+        final conf = existing.first;
+        if (conf['email_verifie'] == 1) {
+          // Compte déjà validé, on bloque l'inscription
+          return false;
+        } else {
+          // Inscription inachevée (non vérifiée), on la supprime pour permettre de recommencer
+          await db.delete(
+            'users',
+            where: '(telephone = ? OR email = ?) AND email_verifie = 0',
+            whereArgs: [telephone, email],
+          );
+        }
+      }
+
       await db.insert('users', {
         'id': id,
         'telephone': telephone,
@@ -413,7 +475,7 @@ class DatabaseService {
       });
       return true;
     } catch (e) {
-      print('Erreur d\'inscription SQLite: \$e');
+      print('Erreur d\'inscription SQLite: $e');
       return false;
     }
   }
@@ -463,6 +525,13 @@ class DatabaseService {
         nationalite: map['nationalite'],
         nomCompletPere: map['nom_complet_pere'],
         nomCompletMere: map['nom_complet_mere'],
+        notairesChoisisIds: map['notaires_choisis_ids'] != null && (map['notaires_choisis_ids'] as String).isNotEmpty
+            ? (map['notaires_choisis_ids'] as String).split(',') : [],
+        notaireExecuteurId: map['notaire_executeur_id'] as String?,
+        statutVie: StatutVie.values[map['statut_vie'] as int? ?? 0],
+        derniereConfirmationVie: map['derniere_confirmation_vie'] != null ? DateTime.tryParse(map['derniere_confirmation_vie']) : null,
+        prochainEnvoiConfirmation: map['prochain_envoi_confirmation'] != null ? DateTime.tryParse(map['prochain_envoi_confirmation']) : null,
+        nombreRelancesEnvoyees: map['nombre_relances_envoyees'] as int? ?? 0,
       );
     }
     return null;
@@ -546,6 +615,13 @@ class DatabaseService {
       nationalite: map['nationalite'] as String?,
       nomCompletPere: map['nom_complet_pere'] as String?,
       nomCompletMere: map['nom_complet_mere'] as String?,
+      notairesChoisisIds: map['notaires_choisis_ids'] != null && (map['notaires_choisis_ids'] as String).isNotEmpty
+          ? (map['notaires_choisis_ids'] as String).split(',') : [],
+      notaireExecuteurId: map['notaire_executeur_id'] as String?,
+      statutVie: StatutVie.values[(map['statut_vie'] as int?) ?? 0],
+      derniereConfirmationVie: map['derniere_confirmation_vie'] != null ? DateTime.tryParse(map['derniere_confirmation_vie'] as String) : null,
+      prochainEnvoiConfirmation: map['prochain_envoi_confirmation'] != null ? DateTime.tryParse(map['prochain_envoi_confirmation'] as String) : null,
+      nombreRelancesEnvoyees: map['nombre_relances_envoyees'] as int? ?? 0,
     );
   }
 
@@ -571,6 +647,35 @@ class DatabaseService {
     final db = await database;
     await db.update('users', {'nom': nom, 'prenom': prenom, 'pays': pays, 'devise': devise},
         where: 'id = ?', whereArgs: [userId]);
+  }
+
+  Future<List<Notaire>> getAllNotaires() async {
+    final db = await database;
+    final maps = await db.query('notaires', orderBy: 'pays, nom ASC');
+    return maps.map((m) => Notaire.fromMap(Map<String, dynamic>.from(m))).toList();
+  }
+
+  Future<void> saveNotairesChoisis(String userId, List<String> notaireIds, String? executeurId) async {
+    final db = await database;
+    await db.update('users', {
+      'notaires_choisis_ids': notaireIds.join(','),
+      'notaire_executeur_id': executeurId,
+    }, where: 'id = ?', whereArgs: [userId]);
+  }
+
+  Future<void> updateStatutVie(String userId, {
+    required StatutVie statut,
+    DateTime? derniereConfirmation,
+    DateTime? prochainEnvoi,
+    required int nombreRelances,
+  }) async {
+    final db = await database;
+    await db.update('users', {
+      'statut_vie': statut.index,
+      if (derniereConfirmation != null) 'derniere_confirmation_vie': derniereConfirmation.toIso8601String(),
+      if (prochainEnvoi != null) 'prochain_envoi_confirmation': prochainEnvoi.toIso8601String(),
+      'nombre_relances_envoyees': nombreRelances,
+    }, where: 'id = ?', whereArgs: [userId]);
   }
 
   // ─── 2. ACTIFS (BASE) ───────────────────────────────────────────────────────

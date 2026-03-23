@@ -28,6 +28,28 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
   }
 
+  Future<void> _resendCode() async {
+    final auth = context.read<AuthProvider>();
+    final newOtp = await auth.resendRegistrationOtp();
+    if (!mounted) return;
+    if (newOtp != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Nouveau code de sécurité envoyé : $newOtp'),
+          backgroundColor: AppTheme.success,
+          duration: const Duration(seconds: 10),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.error ?? 'Erreur lors du renvoi du code.'),
+          backgroundColor: AppTheme.error,
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     for (final c in _controllers) c.dispose();
@@ -111,9 +133,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 ),
                 const SizedBox(height: 20),
                 TextButton(
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Code renvoyé (simulation — vérifiez la console)'), backgroundColor: AppTheme.info),
-                  ),
+                  onPressed: auth.isLoading ? null : _resendCode,
                   child: const Text('Renvoyer le code', style: TextStyle(color: AppTheme.gold)),
                 ),
               ],
@@ -124,3 +144,4 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     );
   }
 }
+

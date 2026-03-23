@@ -562,6 +562,40 @@ class MarketplaceListing {
 }
 
 // ─── TESTAMENT ────────────────────────────────────────────────────────────────
+// Personne ressource : témoin / conseiller notifié lors de la liquidation
+class PersonneRessource {
+  final String id;
+  String nom;
+  String prenom;
+  String qualite;  // ex: ami, médecin, conseiller juridique
+  String telephone;
+  String email;
+  String notes;
+
+  PersonneRessource({
+    required this.id,
+    required this.nom,
+    this.prenom = '',
+    this.qualite = '',
+    this.telephone = '',
+    this.email = '',
+    this.notes = '',
+  });
+
+  String get nomComplet => '$prenom $nom'.trim();
+
+  Map<String, dynamic> toMap() => {
+    'id': id, 'nom': nom, 'prenom': prenom, 'qualite': qualite,
+    'telephone': telephone, 'email': email, 'notes': notes,
+  };
+
+  factory PersonneRessource.fromMap(Map<String, dynamic> map) => PersonneRessource(
+    id: map['id'] ?? '', nom: map['nom'] ?? '', prenom: map['prenom'] ?? '',
+    qualite: map['qualite'] ?? '', telephone: map['telephone'] ?? '',
+    email: map['email'] ?? '', notes: map['notes'] ?? '',
+  );
+}
+
 class Testament {
   final String id;
   final String userId;
@@ -575,6 +609,7 @@ class Testament {
   String? certificationRef;
   List<AyantDroit> ayantsDroits;
   List<RepartitionBien> repartitions;
+  List<PersonneRessource> personnesRessources;
   bool paiementCertifEffectue;
 
   Testament({
@@ -590,6 +625,7 @@ class Testament {
     this.certificationRef,
     this.ayantsDroits = const [],
     this.repartitions = const [],
+    this.personnesRessources = const [],
     this.paiementCertifEffectue = false,
   });
 
@@ -602,6 +638,7 @@ class Testament {
         'certificationRef': certificationRef,
         'ayantsDroits': ayantsDroits.map((a) => a.toMap()).toList(),
         'repartitions': repartitions.map((r) => r.toMap()).toList(),
+        'personnesRessources': personnesRessources.map((p) => p.toMap()).toList(),
         'paiementCertifEffectue': paiementCertifEffectue,
       };
 
@@ -620,6 +657,8 @@ class Testament {
             .map((a) => AyantDroit.fromMap(Map<String, dynamic>.from(a))).toList(),
         repartitions: (map['repartitions'] as List? ?? [])
             .map((r) => RepartitionBien.fromMap(Map<String, dynamic>.from(r))).toList(),
+        personnesRessources: (map['personnesRessources'] as List? ?? [])
+            .map((p) => PersonneRessource.fromMap(Map<String, dynamic>.from(p))).toList(),
         paiementCertifEffectue: map['paiementCertifEffectue'] ?? false,
       );
 }
@@ -788,12 +827,60 @@ class Loyer {
       );
 }
 
+// ─── NOTAIRE ──────────────────────────────────────────────────────────────────
+class Notaire {
+  final String id;
+  String nom;
+  String prenom;
+  String ville;
+  String pays;
+  String telephone;
+  String email;
+  String specialite; // 'notaire', 'huissier', 'avocat'
+  bool estDisponible;
+
+  Notaire({
+    required this.id,
+    required this.nom,
+    this.prenom = '',
+    this.ville = '',
+    this.pays = '',
+    this.telephone = '',
+    this.email = '',
+    this.specialite = 'notaire',
+    this.estDisponible = true,
+  });
+
+  String get nomComplet => 'Me $prenom $nom'.trim();
+
+  Map<String, dynamic> toMap() => {
+    'id': id, 'nom': nom, 'prenom': prenom, 'ville': ville, 'pays': pays,
+    'telephone': telephone, 'email': email, 'specialite': specialite,
+    'est_disponible': estDisponible ? 1 : 0,
+  };
+
+  factory Notaire.fromMap(Map<String, dynamic> map) => Notaire(
+    id: map['id'] ?? '', nom: map['nom'] ?? '', prenom: map['prenom'] ?? '',
+    ville: map['ville'] ?? '', pays: map['pays'] ?? '',
+    telephone: map['telephone'] ?? '', email: map['email'] ?? '',
+    specialite: map['specialite'] ?? 'notaire',
+    estDisponible: (map['est_disponible'] ?? 1) == 1,
+  );
+}
+
 // ─── USER PROFILE ─────────────────────────────────────────────────────────────
 enum KycStatus {
   nonSoumis,
   enAttente,
   valide,
   rejete,
+}
+
+enum StatutVie {
+  actif,
+  confirmationRequise,
+  relance,
+  presumeDecede,
 }
 
 class UserProfile {
@@ -822,6 +909,16 @@ class UserProfile {
   String? nomCompletPere;
   String? nomCompletMere;
 
+  // Notaires désignés
+  List<String> notairesChoisisIds; // max 3
+  String? notaireExecuteurId;
+
+  // Confirmation de vie
+  StatutVie statutVie;
+  DateTime? derniereConfirmationVie;
+  DateTime? prochainEnvoiConfirmation;
+  int nombreRelancesEnvoyees;
+
   UserProfile({
     required this.id, required this.telephone,
     this.email = '',
@@ -842,6 +939,12 @@ class UserProfile {
     this.nationalite,
     this.nomCompletPere,
     this.nomCompletMere,
+    this.notairesChoisisIds = const [],
+    this.notaireExecuteurId,
+    this.statutVie = StatutVie.actif,
+    this.derniereConfirmationVie,
+    this.prochainEnvoiConfirmation,
+    this.nombreRelancesEnvoyees = 0,
   });
 
   String get nomComplet => '$prenom $nom'.trim();
@@ -866,6 +969,12 @@ class UserProfile {
         'nationalite': nationalite,
         'nomCompletPere': nomCompletPere,
         'nomCompletMere': nomCompletMere,
+        'notairesChoisisIds': notairesChoisisIds.join(','),
+        'notaireExecuteurId': notaireExecuteurId,
+        'statutVie': statutVie.index,
+        'derniereConfirmationVie': derniereConfirmationVie?.toIso8601String(),
+        'prochainEnvoiConfirmation': prochainEnvoiConfirmation?.toIso8601String(),
+        'nombreRelancesEnvoyees': nombreRelancesEnvoyees,
       };
 
   factory UserProfile.fromMap(Map<String, dynamic> map) => UserProfile(
@@ -888,5 +997,12 @@ class UserProfile {
         nationalite: map['nationalite'],
         nomCompletPere: map['nomCompletPere'],
         nomCompletMere: map['nomCompletMere'],
+        notairesChoisisIds: map['notairesChoisisIds'] != null && (map['notairesChoisisIds'] as String).isNotEmpty
+            ? (map['notairesChoisisIds'] as String).split(',') : [],
+        notaireExecuteurId: map['notaireExecuteurId'],
+        statutVie: StatutVie.values[map['statutVie'] ?? 0],
+        derniereConfirmationVie: map['derniereConfirmationVie'] != null ? DateTime.tryParse(map['derniereConfirmationVie']) : null,
+        prochainEnvoiConfirmation: map['prochainEnvoiConfirmation'] != null ? DateTime.tryParse(map['prochainEnvoiConfirmation']) : null,
+        nombreRelancesEnvoyees: map['nombreRelancesEnvoyees'] ?? 0,
       );
 }

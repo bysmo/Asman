@@ -26,6 +26,13 @@ class _AssetsListScreenState extends State<AssetsListScreen> with SingleTickerPr
     {'label': 'Véhicules', 'type': AssetType.vehicule},
     {'label': 'Investissements', 'type': AssetType.investissement},
     {'label': 'Créances', 'type': AssetType.creance},
+    {'label': 'Dettes', 'type': AssetType.dette},
+    {'label': 'Comptes', 'type': AssetType.compteBancaire},
+    {'label': 'Objets de luxe', 'type': AssetType.objetsLuxe},
+    {'label': 'Cheptel', 'type': AssetType.cheptelAnimal},
+    {'label': 'Droits d\'auteur', 'type': AssetType.droitsAuteur},
+    {'label': 'Marques & Brevets', 'type': AssetType.marquesBrevets},
+    {'label': 'Autre', 'type': AssetType.autre},
   ];
 
   @override

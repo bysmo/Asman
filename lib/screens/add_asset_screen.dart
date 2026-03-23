@@ -368,7 +368,12 @@ class _AddAssetScreenState extends State<AddAssetScreen> {
       height: 70,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        children: AssetType.values.map((t) {
+        children: const [
+          AssetType.immobilier, AssetType.vehicule, AssetType.investissement,
+          AssetType.creance, AssetType.dette, AssetType.compteBancaire,
+          AssetType.objetsLuxe, AssetType.cheptelAnimal,
+          AssetType.droitsAuteur, AssetType.marquesBrevets, AssetType.autre,
+        ].map((t) {
           final selected = _type == t;
           final color = AppUtils.getColorForType(t);
           return GestureDetector(
