@@ -1005,4 +1005,42 @@ class UserProfile {
         prochainEnvoiConfirmation: map['prochainEnvoiConfirmation'] != null ? DateTime.tryParse(map['prochainEnvoiConfirmation']) : null,
         nombreRelancesEnvoyees: map['nombreRelancesEnvoyees'] ?? 0,
       );
+
+  /// Factory pour construire un UserProfile depuis la réponse API Laravel.
+  /// Les clés correspondent aux champs snake_case retournés par le backend.
+  factory UserProfile.fromApiMap(Map<String, dynamic> map) {
+    // Mapper le kyc_status (string) vers l'enum KycStatus
+    KycStatus kycStatusEnum = KycStatus.nonSoumis;
+    final kycStr = map['kyc_status'] as String?;
+    if (kycStr == 'approuve' || kycStr == 'approved') {
+      kycStatusEnum = KycStatus.verifie;
+    } else if (kycStr == 'en_attente' || kycStr == 'pending') {
+      kycStatusEnum = KycStatus.enAttente;
+    } else if (kycStr == 'rejete' || kycStr == 'rejected') {
+      kycStatusEnum = KycStatus.rejete;
+    }
+
+    return UserProfile(
+      id: map['id']?.toString() ?? '',
+      telephone: map['telephone'] ?? '',
+      email: map['email'] ?? '',
+      nom: map['nom'] ?? '',
+      prenom: map['prenom'] ?? '',
+      pays: map['pays'] ?? 'Burkina Faso',
+      devise: map['devise'] ?? 'XOF',
+      dateCreation: map['created_at'] != null
+          ? DateTime.tryParse(map['created_at']) ?? DateTime.now()
+          : DateTime.now(),
+      emailVerifie: map['otp_verified'] == true || map['otp_verified'] == 1,
+      pinCode: null, // Non retourné par l'API pour sécurité
+      kycStatus: kycStatusEnum,
+      dateNaissance: map['date_naissance'] != null
+          ? DateTime.tryParse(map['date_naissance'])
+          : null,
+      notairesChoisisIds: [],
+      notaireExecuteurId: null,
+      statutVie: StatutVie.actif,
+      nombreRelancesEnvoyees: 0,
+    );
+  }
 }

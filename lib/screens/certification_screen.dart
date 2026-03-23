@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/database_service.dart';
 import '../providers/asset_provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
@@ -9,6 +8,22 @@ import '../models/asset_model.dart';
 
 class CertificationScreen extends StatelessWidget {
   const CertificationScreen({super.key});
+
+  /// Documents requis par type d'actif (logique client)
+  static List<String> _getRequiredDocsByType(AssetType type) {
+    switch (type) {
+      case AssetType.immobilier:
+        return ['Titre foncier', 'Plan cadastral', 'Acte de propriété', 'Photo façade'];
+      case AssetType.parcelle:
+        return ['Acte de cession', 'Plan parcelle', 'Certificat de localisation'];
+      case AssetType.vehicule:
+        return ['Carte grise', 'Certificat de propriété', 'Contrôle technique'];
+      case AssetType.investissement:
+        return ['Attestation de propriété', 'Relevé de compte titre', 'Certificat actions'];
+      default:
+        return ['Pièce d\'identité propriétaire', 'Justificatif de propriété'];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -231,20 +246,10 @@ class CertificationScreen extends StatelessWidget {
     Future<void> loadDocs(Asset? a, void Function(void Function()) setS) async {
       if (a == null) return;
       setS(() => isLoadingDocs = true);
-      requiredDocs = await DatabaseService().getRequiredDocuments(a.type);
+      // Documents requis selon le type d'actif (déterminés côté client)
+      requiredDocs = _getRequiredDocsByType(a.type);
       uploadedDocs.clear();
-
-      // Pré-remplir avec les documents déjà attachés à l'actif (table SQLite asset_documents)
-      final existingDocs = await DatabaseService().getAssetDocuments(a.id);
-      for (var doc in existingDocs) {
-        final nomDoc = doc['nom_document'] as String;
-        final pathDoc = doc['file_path'] as String;
-        // Si le document attaché correspond à un requis, on le lie
-        if (requiredDocs.contains(nomDoc)) {
-          uploadedDocs[nomDoc] = pathDoc;
-        }
-      }
-
+      // Les documents sont gérés par le backend — l'utilisateur les uploade via l'API
       setS(() => isLoadingDocs = false);
     }
 

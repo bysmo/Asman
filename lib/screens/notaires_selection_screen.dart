@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/asset_model.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
-import '../services/database_service.dart';
+import '../services/api_service.dart';
 
 class NotairesSelectionScreen extends StatefulWidget {
   const NotairesSelectionScreen({super.key});
@@ -35,7 +35,16 @@ class _NotairesSelectionScreenState extends State<NotairesSelectionScreen> {
 
   Future<void> _load() async {
     final user = context.read<AuthProvider>().user;
-    final notaires = await DatabaseService().getAllNotaires();
+    // Charger les notaires depuis le backend Laravel
+    final r = await ApiService().get('/notaires');
+    List<Notaire> notaires = [];
+    if (r.success) {
+      final list = r.body as List? ?? [];
+      notaires = list.map((e) => Notaire.fromMap(Map<String, dynamic>.from(e))).toList();
+    } else {
+      // Fallback : liste locale par défaut (jusqu'à ce que l'API soit en ligne)
+      notaires = _defaultNotaires();
+    }
     setState(() {
       _allNotaires = notaires;
       _filtered = notaires;
@@ -43,6 +52,17 @@ class _NotairesSelectionScreenState extends State<NotairesSelectionScreen> {
       _executeurId = user?.notaireExecuteurId;
       _isLoading = false;
     });
+  }
+
+  /// Notaires par défaut tant que le backend n'est pas connecté
+  List<Notaire> _defaultNotaires() {
+    return [
+      Notaire(id: 'n1', nom: 'Ouédraogo', prenom: 'Jean-Baptiste', telephone: '+22670000001', email: 'jb.ouedraogo@notaire.bf', ville: 'Ouagadougou', pays: 'Burkina Faso', specialite: 'Patrimoine & Successions'),
+      Notaire(id: 'n2', nom: 'Traoré', prenom: 'Aïssata', telephone: '+22670000002', email: 'a.traore@notaire.bf', ville: 'Bobo-Dioulasso', pays: 'Burkina Faso', specialite: 'Immobilier'),
+      Notaire(id: 'n3', nom: 'Kaboré', prenom: 'Sylvain', telephone: '+22670000003', email: 's.kabore@notaire.bf', ville: 'Ouagadougou', pays: 'Burkina Faso', specialite: 'Droit des affaires'),
+      Notaire(id: 'n4', nom: 'Compaoré', prenom: 'Marie-Claire', telephone: '+22670000004', email: 'mc.compaore@notaire.bf', ville: 'Koudougou', pays: 'Burkina Faso', specialite: 'Successions'),
+      Notaire(id: 'n5', nom: 'Sawadogo', prenom: 'Ibrahim', telephone: '+22670000005', email: 'i.sawadogo@notaire.bf', ville: 'Ouagadougou', pays: 'Burkina Faso', specialite: 'Patrimoine'),
+    ];
   }
 
   void _filter(String query) {
