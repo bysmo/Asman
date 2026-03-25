@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'providers/auth_provider.dart';
 import 'providers/asset_provider.dart';
+import 'providers/subscription_provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
@@ -12,6 +13,9 @@ import 'screens/pin_setup_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/reset_pin_screen.dart';
+import 'screens/subscription_screen.dart';
+import 'screens/expertise_screen.dart';
+import 'screens/asman_score_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +46,7 @@ class AssetManagerApp extends StatelessWidget {
             return assets;
           },
         ),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
       ],
       child: MaterialApp(
         title: 'Asman',
@@ -58,7 +63,10 @@ class AssetManagerApp extends StatelessWidget {
           '/pin-setup': (_) => const PinSetupScreen(),
           '/forgot-password': (_) => const ForgotPasswordScreen(),
           '/reset-password': (_) => const ResetPasswordScreen(),
-          '/reset-pin': (_) => const ResetPinScreen(),
+          '/reset-pin':    (_) => const ResetPinScreen(),
+          '/subscription': (_) => const SubscriptionScreen(),
+          '/expertise':    (_) => const ExpertiseScreen(),
+          '/asman-score':  (_) => const AsmanScoreScreen(),
         },
       ),
     );

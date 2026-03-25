@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/asset_provider.dart';
+import '../providers/subscription_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_utils.dart';
 import '../models/asset_model.dart';
@@ -38,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AssetProvider>().loadData();
+      context.read<SubscriptionProvider>().loadCurrentSubscription();
     });
   }
 
@@ -417,10 +419,48 @@ class _DashboardTabState extends State<_DashboardTab> {
     final certsPending = assets.certifications.where((c) =>
         c.statut == CertificationStatus.enAttente || c.statut == CertificationStatus.enCours).length;
 
-    return Padding(
+    return Consumer<SubscriptionProvider>(
+      builder: (ctx, subProv, _) => Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Column(
         children: [
+          // ─── Badge tier abonnement ────────────────────────────
+          _buildTierBanner(ctx, subProv),
+          const SizedBox(height: 12),
+
+          // ─── Actions rapides (score + expertise) ─────────────
+          Row(
+            children: [
+              Expanded(child: _quickActionCard(
+                ctx,
+                icon: Icons.analytics,
+                label: 'Asman Score',
+                color: const Color(0xFFFFB300),
+                locked: !['standard', 'premium', 'elite', 'family'].contains(subProv.currentTier),
+                onTap: () => Navigator.pushNamed(ctx, '/asman-score'),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: _quickActionCard(
+                ctx,
+                icon: Icons.business_center,
+                label: 'Expertise',
+                color: const Color(0xFF26C6DA),
+                locked: false,
+                onTap: () => Navigator.pushNamed(ctx, '/expertise'),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: _quickActionCard(
+                ctx,
+                icon: Icons.workspace_premium,
+                label: 'Abonnement',
+                color: const Color(0xFF7B1FA2),
+                locked: false,
+                onTap: () => Navigator.pushNamed(ctx, '/subscription'),
+              )),
+            ],
+          ),
+          const SizedBox(height: 12),
+
           // Bouton Marketplace
           GestureDetector(
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MarketplaceScreen())),
@@ -472,6 +512,103 @@ class _DashboardTabState extends State<_DashboardTab> {
             ),
           ],
         ],
+      ),
+    )); // end Consumer<SubscriptionProvider>
+  }
+
+  Widget _buildTierBanner(BuildContext ctx, SubscriptionProvider prov) {
+    final tier  = prov.currentTier;
+    final sub   = prov.currentSubscription;
+
+    final tierConfig = <String, Map<String, dynamic>>{
+      'decouverte': {'color': const Color(0xFF78909C), 'label': 'Découverte', 'icon': Icons.explore},
+      'standard':   {'color': const Color(0xFF78909C), 'label': 'Standard',   'icon': Icons.star_border},
+      'premium':    {'color': const Color(0xFFFFB300), 'label': 'Premium',    'icon': Icons.star},
+      'elite':      {'color': const Color(0xFF7B1FA2), 'label': 'Elite',      'icon': Icons.diamond},
+      'family':     {'color': const Color(0xFF2E7D32), 'label': 'Family',     'icon': Icons.family_restroom},
+    };
+
+    final cfg   = tierConfig[tier] ?? tierConfig['decouverte']!;
+    final color = cfg['color'] as Color;
+    final label = cfg['label'] as String;
+    final icon  = cfg['icon'] as IconData;
+
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(ctx, '/subscription'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Row(
+                children: [
+                  Text('Plan $label', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+                  if (sub != null && sub.expiresSOon)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
+                        child: Text('Expire dans ${sub.daysRemaining}j', style: const TextStyle(color: Colors.red, fontSize: 10)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (tier == 'decouverte')
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: const Color(0xFFFFB300), borderRadius: BorderRadius.circular(8)),
+                child: const Text('Passer à Standard', style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
+              )
+            else
+              Icon(Icons.chevron_right, color: color, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _quickActionCard(BuildContext ctx, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool locked,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Stack(
+              alignment: Alignment.topRight,
+              children: [
+                Icon(icon, color: color, size: 24),
+                if (locked)
+                  const Positioned(
+                    top: -4, right: -4,
+                    child: Icon(Icons.lock, color: Colors.white38, size: 12),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
     );
   }
