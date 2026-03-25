@@ -13,6 +13,9 @@ use App\Http\Controllers\API\V1\CreanceController;
 use App\Http\Controllers\API\V1\LoyerController;
 use App\Http\Controllers\API\V1\EvaluationController;
 use App\Http\Controllers\API\V1\RevenueController;
+use App\Http\Controllers\API\V1\SubscriptionController;
+use App\Http\Controllers\API\V1\ExpertiseController;
+use App\Http\Controllers\API\V1\AsmanScoreController;
 
 /*
 |--------------------------------------------------------------------------
@@ -129,5 +132,44 @@ Route::prefix('v1')->group(function () {
 
         // Dashboard stats
         Route::get('dashboard/stats',    [AssetController::class, 'dashboardStats']);
+
+        // ─── Abonnements ─────────────────────────────────────────────────────
+        Route::prefix('subscriptions')->group(function () {
+            Route::get('plans',          [SubscriptionController::class, 'plans']);
+            Route::get('current',        [SubscriptionController::class, 'current']);
+            Route::post('subscribe',     [SubscriptionController::class, 'subscribe']);
+            Route::post('cancel',        [SubscriptionController::class, 'cancel']);
+            Route::get('feature/{feature}', [SubscriptionController::class, 'checkFeature']);
+        });
+
+        // ─── Expertise (cabinets: notaire/huissier/avocat/expert/comptable) ──
+        Route::prefix('expertises')->group(function () {
+            Route::get('cabinets',       [ExpertiseController::class, 'cabinets']);
+            Route::get('/',              [ExpertiseController::class, 'index']);
+            Route::post('/',             [ExpertiseController::class, 'store']);
+            Route::get('{id}',           [ExpertiseController::class, 'show']);
+            // Expert: soumettre rapport (réservé aux cabinets authentifiés)
+            Route::post('{id}/rapport',  [ExpertiseController::class, 'submitReport'])
+                ->middleware('role:expert|notaire|huissier|avocat');
+        });
+
+        // ─── Asman Score ─────────────────────────────────────────────────────
+        Route::prefix('score')->middleware('tier:standard,premium,elite,family')->group(function () {
+            Route::get('current',        [AsmanScoreController::class, 'current']);
+            Route::post('recalculate',   [AsmanScoreController::class, 'recalculate']);
+            Route::get('history',        [AsmanScoreController::class, 'history']);
+            Route::get('leaderboard',    [AsmanScoreController::class, 'leaderboard']);
+        });
+
+        // ─── Fonctionnalités Premium+ ─────────────────────────────────────────
+        Route::middleware('tier:premium,elite,family')->group(function () {
+            Route::post('certifications/{certification}/prioritaire',
+                [CertificationController::class, 'setPrioritaire']);
+        });
+
+        // ─── Fonctionnalités Elite/Family ────────────────────────────────────
+        Route::middleware('tier:elite,family')->group(function () {
+            Route::get('revenus/rapport-complet', [RevenueController::class, 'rapportComplet']);
+        });
     });
 });
